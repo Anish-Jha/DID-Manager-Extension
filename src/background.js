@@ -12,10 +12,6 @@ chrome.runtime.onMessageExternal.addListener(
         if (chrome.runtime.lastError || !popupId) {
           chrome.windows.create(
             {
-              url: chrome.runtime.getURL("index.html") + "#/keys",
-              type: "popup",
-              width: 500,
-              height: 600,
               focused: false,
             },
             (window) => {
