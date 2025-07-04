@@ -37,21 +37,54 @@ chrome.runtime.onMessageExternal.addListener(
     if (request.action === "sign-nonce") {
       console.log("Received sign-nonce request:", request);
 
-      chrome.storage.local.get(["didKeyPairs"], (result) => {
-        console.log("Retrieved didKeyPairs from storage:", result.didKeyPairs);
+      // Store the request details for later use
+      const nonceRequest = {
+        nonce: request.nonce,
+        did: request.did,
+        password: request.password,
+        sender: sender,
+        sendResponse: sendResponse,
+      };
+
+      // Send message to UI to show confirmation modal
+      chrome.runtime.sendMessage({
+        action: "show-nonce-confirm-modal",
+        nonce: request.nonce,
+        origin: sender.origin,
+      });
+
+      // Store the request to handle the response later
+      chrome.storage.local.set({ pendingNonceRequest: nonceRequest });
+
+      return true; // Keep the message channel open for async response
+    }
+  }
+);
+
+// Handle confirmation response from the UI
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "nonce-confirm-response") {
+    chrome.storage.local.get(["pendingNonceRequest", "didKeyPairs"], (result) => {
+      const nonceRequest = result.pendingNonceRequest;
+      if (!nonceRequest) {
+        console.error("No pending nonce request found");
+        nonceRequest.sendResponse({ error: "No pending nonce request" });
+        return;
+      }
+
+      if (message.confirmed) {
+        // User confirmed, proceed with signing
+        console.log("User confirmed nonce signing");
         const stored = JSON.parse(result.didKeyPairs);
-        console.log("Stored DID key pairs:", stored);
-        const entry = stored[request.did];
+        const entry = stored[nonceRequest.did];
 
         if (!entry) {
           console.error("DID not found in storage");
-          sendResponse({ error: "DID not found" });
+          nonceRequest.sendResponse({ error: "DID not found" });
           return;
         }
 
-        const password = request.password ;
-        console.log("Using password for decryption:", password);
-
+        const password = nonceRequest.password;
         try {
           const decrypted = CryptoJS.AES.decrypt(
             entry.secretKey,
@@ -64,7 +97,7 @@ chrome.runtime.onMessageExternal.addListener(
           if (secretKeyBytes.length !== 64)
             throw new Error("Invalid private key length");
 
-          const nonceBytes = new TextEncoder().encode(request.nonce);
+          const nonceBytes = new TextEncoder().encode(nonceRequest.nonce);
           const sigBytes = ed.sign(secretKeyBytes, nonceBytes);
           const signature = bs58.encode(sigBytes);
 
@@ -80,19 +113,24 @@ chrome.runtime.onMessageExternal.addListener(
             });
           });
 
-          sendResponse({ status: "nonce-signed" });
+          nonceRequest.sendResponse({ status: "nonce-signed" });
         } catch (err) {
           console.error("Error signing nonce:", err.message);
-          sendResponse({ error: err.message });
+          nonceRequest.sendResponse({ error: err.message });
         }
-      });
+      } else {
+        // User canceled
+        console.log("User canceled nonce signing");
+        nonceRequest.sendResponse({ error: "User canceled nonce signing" });
+      }
 
-      return true;
-    }
+      // Clear the pending request
+      chrome.storage.local.remove("pendingNonceRequest");
+    });
+
+    return true;
   }
-);
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "did-auth-complete" && currentRequestOrigin) {
     chrome.tabs.query({ url: currentRequestOrigin + "/*" }, (tabs) => {
       tabs.forEach((tab) => {

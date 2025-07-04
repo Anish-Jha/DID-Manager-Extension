@@ -125,6 +125,24 @@ export default {
                 this.handleDidSelected(did, password);
             }
         });
+
+        // Listen for nonce confirmation request
+        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+            if (message.action === 'show-nonce-confirm-modal') {
+                this.state.showConfirmModal = true;
+                this.state.confirmModal = {
+                    title: 'Confirm Nonce Signing',
+                    message: `The website ${message.origin} is requesting to sign a nonce: ${message.nonce}. Do you want to proceed?`,
+                    callback: (confirmed) => {
+                        chrome.runtime.sendMessage({
+                            action: 'nonce-confirm-response',
+                            confirmed,
+                        });
+                        this.state.showConfirmModal = false;
+                    },
+                };
+            }
+        });
     },
     methods: {
         handleDidSelected(did, password) {
