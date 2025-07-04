@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "DID Manager for Decast",
+  "version": "1.0",
+  "description": "Manage Decentralized Identifiers (DID) for Decast inside your browser.",
+  "action": {
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "./assets/icons/icon-16.png",
+      "48": "./assets/icons/icon-48.png",
+      "128": "./assets/icons/icon-128.png"
+    }
+  },
+  "permissions": [
+    "tabs",
+    "storage",
+    "activeTab",
+    "scripting",
+    "windows",
+     "action",
+     "webNavigation"
+  ],
+  "host_permissions": [
+    "https://decast.live/*", "http://localhost:8080/*"
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://decast.live/*", "http://localhost:8080/*"
+    ]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://decast.live/*", "http://localhost:8080/*"],
+      "js": ["content.js"],
+      "all_frames": false,
+      "run_at": "document_end"
+    }
+  ],
+  "icons": {
+    "16": "./assets/icons/icon-16.png",
+    "48": "./assets/icons/icon-48.png",
+    "128": "./assets/icons/icon-128.png"
+  }
+}
