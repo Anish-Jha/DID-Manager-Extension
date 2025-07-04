@@ -93,7 +93,14 @@ npm run build
 * Click **Load Unpacked**
 * Select the project folder
 
+5. Run live changes:
+
+```bash
+npm run dev
+```
+
 ---
+
 
 ## 🔑 **Complete DID Login Flow**
 
