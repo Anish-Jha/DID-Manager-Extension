@@ -75,27 +75,27 @@ cd decast-extension
 npm install
 ```
 
-**3. Environment Setup:**
-Create a `.env` file in the project root and define your extension ID:
-
-```env
-EXTENSION_ID="your_extension_id_here"
-```
-
-**4. Build the Popup UI:**
+**3. Build the Popup UI:**
 
 ```bash
 npm run build
 ```
 
-**5. Load the Extension in Chrome:**
+**4. Load the Extension in Chrome:**
 
 * Navigate to `chrome://extensions`
 * Enable **Developer Mode**
 * Select **Load Unpacked**
 * Choose the `decast-extension` folder
 
-**6. Run Live Development Server:**
+**4. Update EXTENSION_ID:**
+
+* Navigate to `Content.js`
+* update **EXTENSION_ID**
+* Check **EXTENSION_ID** in your browser `chrome://extensions`.
+* Look for **DID-Manager**.
+
+**5. Run Live Development Server:**
 
 ```bash
 npm run dev
