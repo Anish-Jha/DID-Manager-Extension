@@ -10,18 +10,7 @@ chrome.runtime.onMessageExternal.addListener(
 
       chrome.action.openPopup((popupId) => {
         if (chrome.runtime.lastError || !popupId) {
-          chrome.windows.create(
-            {
-              focused: false,
-            },
-            (window) => {
-              if (chrome.runtime.lastError) {
-                sendResponse({ error: "Failed to open popup" });
-              } else {
-                sendResponse({ status: "popup-opened" });
-              }
-            }
-          );
+        
         } else {
           sendResponse({ status: "popup-opened" });
         }

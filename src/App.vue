@@ -92,7 +92,7 @@ export default {
                 responses: [],
                 showBackupModal: false,
                 backupKey: '',
-                showOnboarding: false,
+                showOnboarding: true,
                 dontShowOnboarding: false,
                 activeTab: 'keys',
                 showPromptModal: false,
@@ -174,7 +174,7 @@ export default {
             if (!this.state.storedDids.includes(this.state.selectedDid)) {
                 this.state.selectedDid = this.state.storedDids.length > 0 ? this.state.storedDids[0] : '';
             }
-            this.state.showOnboarding = this.state.storedDids.length === 0 && !this.state.dontShowOnboarding;
+            // this.state.showOnboarding = this.state.storedDids.length === 0 && !this.state.dontShowOnboarding;
         },
 
         loadSettings() {

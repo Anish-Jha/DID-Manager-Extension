@@ -9,7 +9,7 @@
         <span v-if="isLoading && action === 'generate'"
           class="animate-spin h-4 w-4 border-2 border-black border-t-transparent rounded-full"></span>
       </button>
-      <pre v-if="keyInfo" class="mt-3 bg-gray-800 p-3 text-sm rounded text-white">{{ keyInfo }}</pre>
+      <pre v-if="keyInfo" class="mt-3 bg-gray-800 p-3 text-sm rounded text-white">{{ truncateDid(keyInfo) }}</pre>
     </div>
 
     <div class="mb-6">
@@ -240,6 +240,9 @@ export default {
       }
     }
     ,
+    truncateDid(did) {
+      return did.length > 30 ? `${did.slice(0, 30)}...${did.slice(-16)}` : did;
+    },
   },
 };
 </script>
