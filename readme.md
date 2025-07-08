@@ -86,7 +86,7 @@ npm run build
 * Navigate to `chrome://extensions`
 * Enable **Developer Mode**
 * Select **Load Unpacked**
-* Choose the `decast-extension` folder
+* Choose the `decast-extension/dist` folder
 
 **4. Update EXTENSION_ID:**
 
