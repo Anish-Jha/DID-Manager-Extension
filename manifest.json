@@ -17,15 +17,14 @@
     "activeTab",
     "scripting",
     "windows",
-     "action",
      "webNavigation"
   ],
   "host_permissions": [
-    "https://decast.live/*", "http://localhost:8080/*"
+    "https://decast.live/*", "http://localhost:8080/*" , "https://dev.decast.live/*"
   ],
   "externally_connectable": {
     "matches": [
-      "https://decast.live/*", "http://localhost:8080/*"
+      "https://decast.live/*", "http://localhost:8080/*" , "https://dev.decast.live/*"
     ]
   },
   "background": {
@@ -33,7 +32,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://decast.live/*", "http://localhost:8080/*"],
+      "matches": ["https://decast.live/*", "http://localhost:8080/*", "https://dev.decast.live/*"], 
       "js": ["content.js"],
       "all_frames": false,
       "run_at": "document_end"
@@ -43,5 +42,6 @@
     "16": "./assets/icons/icon-16.png",
     "48": "./assets/icons/icon-48.png",
     "128": "./assets/icons/icon-128.png"
-  }
+  },
+  "key": "lfacpjlnigggljlkeojobimcdiiggnpc"
 }
