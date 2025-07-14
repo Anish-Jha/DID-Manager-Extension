@@ -14,7 +14,7 @@
         <!-- Header with Logo and Title -->
         <div class="flex items-center gap-4 mb-6">
           <img
-            src="../assets/logot.svg"
+            src="../icons/logot.svg"
             alt="DID:Decast Logo"
             class="w-10 h-10"
             aria-hidden="true"

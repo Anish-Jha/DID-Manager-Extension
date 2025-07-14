@@ -3,11 +3,11 @@
     <div id="app" class="bg-black text-white p-4 w-[500px] h-[600px] flex flex-col items-center justify-start">
         <header class="flex items-center justify-between gap-3 mb-4 w-full">
             <div class="flex items-center gap-2 justify-start">
-                <img src="./assets/logot.svg" alt="DID:Decast Logo" class="w-8 h-8" />
+                <img src="./icons/logot.svg" alt="DID:Decast Logo" class="w-8 h-8" />
                 <h1 class="text-xl font-semibold text-white">Decast DID Manager</h1>
             </div>
             <div class="basic_child_2 cursor-pointer hover:opacity-80 transition-opacity">
-                <img src="./assets/settings.svg" />
+                <img src="./icons/settings.svg" />
             </div>
         </header>
 

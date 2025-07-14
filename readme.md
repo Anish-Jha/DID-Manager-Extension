@@ -45,7 +45,7 @@ A secure Chrome Extension enabling **DID-based authentication** for [Decast](htt
 │   ├── main.js              # Vue 3 entry point for popup UI
 │   ├── style.css            # Global popup UI styles
 │   ├── App.vue              # Root Vue component
-│   ├── assets/              # Static assets
+│   ├── Icons/              # Static Icons
 │   │   └── logo.png
 │   └── components/          # Reusable Vue components
 │       ├── KeyManager.vue

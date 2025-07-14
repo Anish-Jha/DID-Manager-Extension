@@ -29,7 +29,7 @@ module.exports = {
       {
         test: /\.(svg|png|jpg|gif)$/,
         type: "asset/resource",
-        generator: { filename: "assets/[name][ext]" },
+        generator: { filename: "icons/[name][ext]" },
       },
     ],
   },
@@ -39,7 +39,7 @@ module.exports = {
       patterns: [
         { from: "index.html", to: "." }, // Popup HTML
         { from: "manifest.json", to: "." }, // Manifest file
-        { from: "src/assets", to: "assets" }, // Assets folder
+        { from: "src/icons", to: "icons" }, // Icons folder
         { from: 'src/background.js', to: 'background.js' }, 
         { from: "src/content.js", to: "content.js" },
       ],
