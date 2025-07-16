@@ -1,105 +1,122 @@
 <template>
-    <div class="border border-gray-600 p-4 rounded-lg shadow-md bg-black text-white">
-        <h3 class="text-green-400 text-lg font-semibold mb-3">Select DID</h3>
+  <div class="flex flex-col items-center justify-center w-full h-full">
+    <h3 class="text-xl font-semibold text-center text-white mb-4">Connect a DID</h3>
+    <p class="text-gray-500 text-sm font-semibold text-center mb-8">
+      Your DID uniquely identifies you on<br />decentralized platforms.
+    </p>
 
-        <input v-model="searchQuery" type="text"
-            class="w-full bg-gray-800 text-white border border-gray-700 rounded px-3 py-2 mb-3 focus:ring-2 focus:ring-yellow-400 outline-none"
-            placeholder="Search DIDs..." />
+    <div class="border border-gray-700 rounded-lg p-4 w-full max-w-md">
+      <label for="localselectedDid" class="text-white text-sm font-medium mb-2 block">Select DID Profile</label>
+      <select
+        v-model="localSelectedDid"
+        class="w-full bg-transparent text-white bg-gray-800 text-base border border-gray-700 rounded px-3 py-2 mb-4 focus:ring-2 focus:ring-[#D7DF23] outline-none"
+      >
+        <option value="" disabled class="text-white bg-[#15161E]">Choose a DID</option>
+        <option
+          v-for="entry in storedDids"
+          :key="entry.did"
+          :value="entry.did"
+          class="text-white bg-[#15161E]"
+        >
+          {{ entry.name ? `${entry.name} - ${truncateDid(entry.did)}` : truncateDid(entry.did) }}
+        </option>
+      </select>
 
-        <select v-model="localSelectedDid"
-            class="w-full bg-gray-800 text-white border border-gray-700 rounded px-3 py-2 mb-3 focus:ring-2 focus:ring-yellow-400 outline-none"
-            :disabled="filteredDids.length === 0" @change="promptPassword">
-            <option value="">Select a DID</option>
-            <option v-for="entry in filteredDids" :key="entry.did" :value="entry.did" :title="entry.did">
-                {{ truncateDid(entry.did) }} ({{ formatDate(entry.createdAt) }})
-            </option>
-        </select>
-
-        <p v-if="errorMessage" class="text-red-500 text-sm mt-2">{{ errorMessage }}</p>
+      <button
+        v-if="localSelectedDid"
+        class="w-full bg-[#d7df23] text-black px-6 py-2 rounded-lg font-semibold text-sm hover:bg-[#d7df23]/90 transition"
+        @click="confirmSelection"
+      >
+        Confirm
+      </button>
     </div>
+
+    <p v-if="storedDids.length === 0" class="text-gray-500 text-sm text-center mt-4">
+      No DIDs found.
+    </p>
+    <p v-if="errorMessage" class="text-red-500 text-sm mt-2">{{ errorMessage }}</p>
+  </div>
 </template>
 
 <script>
-import CryptoJS from 'crypto-js';
-import bs58 from 'bs58';
-import * as ed from '@stablelib/ed25519';
 export default {
-    props: {
-        dids: {
-            type: Array,
-            default: () => [],
-        },
+  name: 'DidSelector',
+  props: {
+    dids: {
+      type: Array,
+      default: () => [],
     },
-    data() {
-        return {
-            localSelectedDid: '',
-            searchQuery: '',
-            errorMessage: '',
-        };
+  },
+  data() {
+    return {
+      localSelectedDid: '',
+      errorMessage: '',
+    };
+  },
+  computed: {
+    storedDids() {
+      return this.dids
+        .map((did) => {
+          const stored = JSON.parse(localStorage.getItem('didKeyPairs') || '{}');
+          return {
+            did,
+            name: stored[did]?.name || '',
+            createdAt: stored[did]?.createdAt || new Date().toISOString(),
+          };
+        })
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     },
-    computed: {
-        filteredDids() {
-            let stored = {};
-            try {
-                stored = JSON.parse(localStorage.getItem('didKeyPairs')) || {};
-            } catch (e) {
-                console.error('Error parsing DID storage:', e);
-            }
-            return this.dids.map(did => ({
-                did,
-                createdAt: stored[did]?.createdAt || new Date().toISOString(),
-            }))
-                .filter(entry => entry.did.toLowerCase().includes(this.searchQuery.toLowerCase()))
-                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  },
+  methods: {
+    confirmSelection() {
+      if (!this.localSelectedDid) {
+        this.errorMessage = 'Please select a DID.';
+        return;
+      }
+
+      this.errorMessage = '';
+
+      this.$emit('did-selected', { did: this.localSelectedDid });
+
+      window.postMessage(
+        {
+          action: 'did-selected',
+          did: this.localSelectedDid,
         },
+        window.location.origin
+      );
     },
-    methods: {
-        promptPassword() {
-            if (!this.localSelectedDid) {
-                this.errorMessage = 'Please select a DID.';
-                return;
-            }
-
-            this.$emit('show-prompt', {
-                title: 'Decrypt Private Key',
-                placeholder: 'Enter password to decrypt your private key',
-                callback: (password) => {
-                    if (!password?.trim()) {
-                        this.errorMessage = 'Password is required.';
-                        this.localSelectedDid = '';
-                        return;
-                    }
-                    this.sendSelection(password);
-                },
-            });
-        },
-
-        sendSelection(password) {
-            if (!this.localSelectedDid || !password?.trim()) {
-                this.errorMessage = 'DID and password are required.';
-                this.localSelectedDid = '';
-                return;
-            }
-
-            this.$emit('did-selected', { did: this.localSelectedDid, password });
-
-            window.postMessage({
-                action: 'did-selected',
-                did: this.localSelectedDid,
-                password,
-            }, window.location.origin);
-
-            this.errorMessage = '';
-        },
-
-        truncateDid(did) {
-            return did.length > 30 ? `${did.slice(0, 20)}...${did.slice(-6)}` : did;
-        },
-
-        formatDate(dateStr) {
-            const date = new Date(dateStr);
-            return isNaN(date) ? 'Unknown' : date.toLocaleDateString();
-        },
+    truncateDid(did) {
+      return did.length > 30 ? `${did.slice(0, 16)}...${did.slice(-16)}` : did;
     },
+  },
 };
 </script>
+
+<style scoped>
+* {
+  font-family: 'Rethink Sans', sans-serif !important;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1a1b24;
+}
+::-webkit-scrollbar-thumb {
+  background: #4b4e6d;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d7df23;
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23D7DF23' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1em;
+}
+</style>

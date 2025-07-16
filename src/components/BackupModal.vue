@@ -1,47 +1,71 @@
+<!-- BackupModal.vue -->
 <template>
-  <Dialog as="div" :open="true" @close="$emit('close')" class="relative z-50">
-    <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" aria-hidden="true"></div>
-    <div class="fixed inset-0 flex items-center justify-center p-4">
-      <DialogPanel
-        class="bg-gray-900 rounded-lg p-6 max-w-md w-full shadow-xl transform transition-all"
-      >
-        <DialogTitle class="text-xl font-semibold text-[#d7df23] mb-2">Backup Private Key</DialogTitle>
-        <DialogDescription class="text-gray-300 mb-4">
-          Download or copy the private key below and store it securely. Do not share it!
-        </DialogDescription>
-        <pre class="bg-gray-800 p-3 rounded-md text-sm text-white mb-4">{{ truncateDid(backupKey) }}</pre>
-        <div class="flex gap-2">
-          <button
-            class="bg-[#d7df23] text-gray-900 px-4 py-2 rounded-md hover:bg-yellow-400 flex-1 transition-colors"
-            @click="$emit('download')"
-          >
-            Download Key
-          </button>
-          <button
-            class="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-600 flex-1 transition-colors"
-            @click="$emit('close')"
-          >
-            Close
-          </button>
-        </div>
-      </DialogPanel>
+  <div
+    class="fixed bottom-0 left-0 w-full max-w-md mx-auto bg-[#15161E] border border-gray-700 rounded-t-xl p-12 shadow-lg z-50 animate-slide-up"
+    style="max-height: 300px;">
+    <h3 class="text-white text-lg font-semibold mb-2">Download Backup Key</h3>
+    <p class="text-gray-500 text-sm mb-4">
+      Download and store your private key securely. Keep it safe — anyone with this key can access your identity.
+    </p>
+    <div
+      class="w-full bg-transparent text-white text-base bg-gray-600 border border-gray-700 rounded px-3 py-2 mb-4 flex justify-between items-center">
+      {{ truncateDid(backupKey) }} <img @click="copyKey" class="cursor-pointer" src="../icons/copy.svg" alt=""></div>
+    <div class="flex gap-3">
+      <button
+        class="bg-[#D7DF23] text-black text-lg font-semibold px-4 py-2 rounded hover:bg-yellow-500 transition flex items-center justify-center gap-2 flex-1"
+        @click="$emit('download')">
+        Download Key
+      </button>
+      <button
+        class="bg-gray-600 text-white text-lg font-semibold px-4 py-2 rounded hover:bg-gray-500 transition flex items-center justify-center gap-2 flex-1"
+        @click="$emit('close')">
+        Close
+      </button>
     </div>
-  </Dialog>
+  </div>
 </template>
 
 <script>
-import { Dialog, DialogPanel, DialogTitle, DialogDescription } from '@headlessui/vue';
-
 export default {
-  components: { Dialog, DialogPanel, DialogTitle, DialogDescription },
+  name: 'BackupModal',
   props: {
-    backupKey: String,
-  },
-  methods:{
-    truncateDid(did) {
-      if (!did || did.length <= 50) return did;
-      return `${did.slice(0, 20)}...${did.slice(-15)}`;
+    backupKey: {
+      type: String,
+      required: true,
     },
-  }
+  },
+  methods: {
+    truncateDid(did) {
+      return did.length > 30 ? `${did.slice(0, 12)}.....${did.slice(-12)}` : did;
+    },
+    copyKey() {
+      navigator.clipboard.writeText(this.backupKey).then(() => {
+        this.$emit('response', 'Backup key copied to clipboard!');
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+        this.$emit('response', 'Failed to copy backup key.');
+      });
+    },
+  },
 };
 </script>
+
+<style scoped>
+* {
+  font-family: 'Rethink Sans', sans-serif !important;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+</style>
