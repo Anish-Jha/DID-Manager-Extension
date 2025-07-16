@@ -2,7 +2,7 @@
 <template>
     <div id="app"
         class="bg-[#15161E] text-white pt-4 pl-4 pr-4 w-[450px] h-[600px] flex flex-col items-center justify-start">
-        <UnlockModal v-if="!state.showUnlockModal" @unlock="handleUnlock" @response="addResponse" />
+        <UnlockModal v-if="state.showUnlockModal" @unlock="handleUnlock" @response="addResponse" />
         <template v-else>
             <header class="flex items-center justify-between gap-3 mb-4 w-full border-b border-gray-700 pb-2">
                 <div class="flex items-center gap-2 justify-start">
