@@ -11,7 +11,7 @@
         <div class="flex flex-col justify-center items-center gap-4 mb-6">
           <img src="../icons/onboard.svg" alt="DID:Decast Logo" class="w-36 h-36" aria-hidden="true" />
           <DialogTitle as="h2" class="text-xl font-semibold text-center text-white mt-8">
-            Unlock Extension
+            Welcome Back!
           </DialogTitle>
           <DialogDescription as="p" class="text-gray-500 text-sm font-semibold text-center mb-6">
             Enter your password to unlock the DID:Decast extension.
