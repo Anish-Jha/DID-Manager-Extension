@@ -1,21 +1,21 @@
 <!-- Settings.vue -->
 <template>
   <div class="text-white flex flex-col items-center justify-center p-2 w-full h-full">
-    <h3 class="text-white text-2xl font-bold mb-2">Manage Your DIDs</h3>
+    <h3 class="text-white text-2xl font-bold mb-2">Manage Your Identities</h3>
     <p class="text-center text-gray-500 text-base font-semibold">
-      Safely manage your existing DIDs: view, back them up, or delete when needed.
+      Safely manage your existing identities: view, back them up, or delete when needed.
     </p>
     <div class="mt-6 mb-6 w-full max-w-md border border-gray-700 rounded-lg p-4">
       <div class="space-y-4">
         <div>
-          <label for="did-select" class="text-white text-base font-medium mb-2 block">Select a DID profile</label>
+          <label for="did-select" class="text-white text-base font-medium mb-2 block">Select a Identity</label>
           <select
             id="did-select"
             :value="selectedDid"
             @change="$emit('update:selectedDid', $event.target.value)"
             class="w-full bg-transparent text-white bg-gray-800 text-base border border-gray-700 rounded px-3 py-2 mb-4 focus:ring-2 focus:ring-[#D7DF23] outline-none"
           >
-            <option class="text-white bg-[#15161E]" value="" disabled>Select a DID</option>
+            <option class="text-white bg-[#15161E]" value="" disabled>Select Identity</option>
             <option class="text-white bg-[#15161E]" v-for="did in storedDids" :key="did.did" :value="did.did">
               {{ did.name || truncateDid(did.did) }}
             </option>
@@ -34,7 +34,7 @@
             :disabled="isLoading"
             @click="promptDeleteKeyPair"
           >
-            Delete DID
+            Delete ID
             <span
               v-if="isLoading && action === 'delete'"
               class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"

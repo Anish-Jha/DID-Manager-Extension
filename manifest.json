@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "DID Manager for Decast",
-  "version": "1.1",
-  "description": "Manage Decentralized Identifiers (DID) for Decast inside your browser.",
+  "name": "Decast ID Manager",
+  "version": "2.2",
+  "description": "🔐 Manage and authenticate with decentralized identities (DIDs) on decast.live. Generate, restore, and sign securely.",
   "action": {
     "default_popup": "index.html",
     "default_icon": {
@@ -20,11 +20,11 @@
      "webNavigation"
   ],
   "host_permissions": [
-    "https://decast.live/*", "http://localhost:8080/*" , "https://dev.decast.live/*" , "https://beta.live1.decast.live/*"
+    "https://decast.live/*" , "https://dev.decast.live/*" , "https://beta.live1.decast.live/*" , "http://localhost:8080/*"
   ],
   "externally_connectable": {
     "matches": [
-      "https://decast.live/*", "http://localhost:8080/*" , "https://dev.decast.live/*" , "https://beta.live1.decast.live/*"
+      "https://decast.live/*", "https://dev.decast.live/*" , "https://beta.live1.decast.live/*" , "http://localhost:8080/*"
     ]
   },
   "background": {
@@ -32,7 +32,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://decast.live/*", "http://localhost:8080/*", "https://dev.decast.live/*" , "https://beta.live1.decast.live/*"], 
+      "matches": ["https://decast.live/*", "http://localhost:8080/*", "https://dev.decast.live/*" , "https://beta.live1.decast.live/*" , "http://localhost:8080/*"], 
       "js": ["content.js"],
       "all_frames": false,
       "run_at": "document_end"

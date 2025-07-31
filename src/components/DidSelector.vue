@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col items-center justify-center w-full h-full">
-    <h3 class="text-xl font-semibold text-center text-white mb-4">Connect a DID</h3>
+    <h3 class="text-xl font-semibold text-center text-white mb-4">Connect a Identity</h3>
     <p class="text-gray-500 text-sm font-semibold text-center mb-8">
       Your DID uniquely identifies you on<br />decentralized platforms.
     </p>
@@ -11,7 +11,7 @@
         v-model="localSelectedDid"
         class="w-full bg-transparent text-white bg-gray-800 text-base border border-gray-700 rounded px-3 py-2 mb-4 focus:ring-2 focus:ring-[#D7DF23] outline-none"
       >
-        <option value="" disabled class="text-white bg-[#15161E]">Choose a DID</option>
+        <option value="" disabled class="text-white bg-[#15161E]">Choose a ID</option>
         <option
           v-for="entry in storedDids"
           :key="entry.did"
@@ -32,7 +32,7 @@
     </div>
 
     <p v-if="storedDids.length === 0" class="text-gray-500 text-sm text-center mt-4">
-      No DIDs found.
+      No IDs found.
     </p>
     <p v-if="errorMessage" class="text-red-500 text-sm mt-2">{{ errorMessage }}</p>
   </div>

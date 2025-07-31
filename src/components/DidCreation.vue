@@ -12,7 +12,7 @@
 
     <button
       class="w-full bg-[#d7df23] px-8 py-3 rounded-lg font-semibold text-base border-none outline-none text-black mb-4"
-      @click="$emit('generate-did')" aria-label="Generate a new DID">
+      @click="$emit('generate-did')" aria-label="Generate a new ID">
       Continue
     </button>
 

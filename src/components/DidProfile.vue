@@ -8,7 +8,7 @@
 
       <!-- DID Section -->
       <div class="border border-gray-700 rounded-2xl p-4 mb-6 shadow-sm">
-        <h4 class="text-base font-semibold text-white mb-3">Your DIDs</h4>
+        <h4 class="text-base font-semibold text-white mb-3">Your Identities</h4>
         <div v-if="storedDids.length === 0" class="text-sm text-gray-500 text-center">
           No DIDs available. Create one to get started.
         </div>

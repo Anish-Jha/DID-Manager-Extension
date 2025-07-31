@@ -1,4 +1,4 @@
-const EXTENSION_ID = "jodmkganidmeejnjadeennllbcacffka";
+const EXTENSION_ID = "algkhhfaciplhfnkmecpmdfampkppndj"; 
 
 window.addEventListener("message", (event) => {
   if (event.source !== window || !event.isTrusted) return;

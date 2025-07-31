@@ -1,6 +1,6 @@
 <!-- UnlockModal.vue -->
 <template>
-  <Dialog as="div" :open="true" @close="() => {}" class="relative z-50 h-full">
+  <Dialog as="div" :open="true" @close="() => { }" class="relative z-50 h-full">
     <div class="bg-[#15161E] fixed inset-0 flex flex-col items-center justify-start p-2 h-full">
       <header class="flex items-center justify-between gap-3 w-full border-b border-gray-700 mt-0">
         <div class="flex items-center gap-2 p-2 justify-start">
@@ -16,23 +16,19 @@
           <DialogDescription as="p" class="text-gray-500 text-sm font-semibold text-center mb-6">
             Enter your password to unlock the DID:Decast extension.
           </DialogDescription>
-          <input
-            v-model="password"
-            type="password"
+          <input v-model="password" type="password"
             class="w-full bg-gray-800 text-white border border-gray-700 rounded px-3 py-2 mb-3 focus:ring-2 focus:ring-yellow-400 outline-none"
-            placeholder="Enter your password"
-            @keyup.enter="unlock"
-          />
+            placeholder="Enter your password" @keyup.enter="unlock" />
           <button
             class="w-full bg-[#d7df23] px-8 py-3 rounded-lg font-semibold text-base border-none outline-none text-black"
-            :disabled="!password.trim() || isLoading"
-            @click="unlock"
-          >
+            :disabled="!password.trim() || isLoading" @click="unlock">
             Unlock
-            <span
-              v-if="isLoading"
-              class="animate-spin h-4 w-4 border-2 border-black border-t-transparent rounded-full ml-2"
-            ></span>
+            <span v-if="isLoading"
+              class="animate-spin h-4 w-4 border-2 border-black border-t-transparent rounded-full ml-2"></span>
+          </button>
+          <button class="w-full text-gray-500 font-underline text-sm font-semibold mt-4 hover:text-[#D7DF23]"
+            @click="$emit('forgot-password')">
+            Forgot Password?
           </button>
         </div>
       </DialogPanel>

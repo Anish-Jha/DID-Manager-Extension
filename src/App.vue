@@ -2,9 +2,12 @@
 <template>
     <div id="app"
         class="bg-[#15161E] text-white pt-4 pl-4 pr-4 w-[450px] h-[600px] flex flex-col items-center justify-start">
-        <UnlockModal v-if="state.showUnlockModal" @unlock="handleUnlock" @response="addResponse" />
+        <UnlockModal v-if="state.showUnlockModal" @unlock="handleUnlock" @response="addResponse"
+            @forgot-password="showForgotPasswordModal" />
+        <ForgotPassword v-if="state.showForgotPasswordModal" @response="addResponse" @wallet-reset="handleWalletReset"
+            @close="showForgotPasswordModal = false" />
         <template v-else>
-            <header class="flex items-center justify-between gap-3 mb-4 w-full border-b border-gray-700 pb-2">
+            <header class="flex items-center justify-between gap-3 mb-4 w-full border-b border-gray-700 pb-2 sticky top-0">
                 <div class="flex items-center gap-2 justify-start">
                     <img src="./icons/logot.svg" alt="DID:Decast Logo" class="w-auto h-8" />
                 </div>
@@ -103,6 +106,7 @@ import bs58 from "bs58";
 import * as ed from "@stablelib/ed25519";
 import axios from "axios";
 import DidProfile from "./components/DidProfile.vue";
+import ForgotPassword from "./components/ForgotPassword.vue";
 
 export default {
     components: {
@@ -116,7 +120,8 @@ export default {
         DidRestore,
         Settings,
         UnlockModal,
-        DidProfile
+        DidProfile,
+        ForgotPassword,
     },
     data() {
         return {
@@ -141,6 +146,7 @@ export default {
                 isFirstTime: false,
                 extensionPassword: "",
                 showDidSelector: false,
+                showForgotPasswordModal: false,
             },
             tabs: [
                 {
@@ -284,7 +290,7 @@ export default {
                 return;
             }
             this.state.selectedDid = did;
-            this.addResponse("✅ DID selected");
+            // this.addResponse("✅ DID selected");
             chrome.tabs.query({}, (tabs) => {
                 tabs.forEach((tab) => {
                     chrome.tabs.sendMessage(tab.id, {
@@ -294,7 +300,7 @@ export default {
                 });
             });
 
-            this.addResponse('DID selected and sent to website');
+            // this.addResponse('DID selected and sent to website');
         },
 
         loadStoredDids() {
@@ -344,6 +350,72 @@ export default {
             this.state.showPromptModal = true;
         },
 
+        showForgotPasswordModal() {
+            this.state.showUnlockModal = false;
+            this.state.showForgotPasswordModal = true;
+        },
+        handleWalletReset({ newPassword, didData }) {
+            // Clear all data in localStorage and chrome.storage.local
+            localStorage.clear();
+            chrome.storage.local.clear(() => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error clearing chrome.storage.local:", chrome.runtime.lastError.message);
+                    this.addResponse("Error resetting wallet storage.");
+                    return;
+                }
+                console.log("chrome.storage.local cleared successfully");
+
+                // Reset state
+                this.state.storedDids = [didData.did];
+                this.state.selectedDid = didData.did;
+                this.state.selectedDidData = didData;
+                this.state.responses = [];
+                this.state.showBackupModal = false;
+                this.state.backupKey = "";
+                this.state.showOnboarding = false;
+                this.state.dontShowOnboarding = false;
+                this.state.activeTab = "profile";
+                this.state.showPromptModal = false;
+                this.state.showConfirmModal = false;
+                this.state.websiteOrigin = "";
+                this.state.showDidGenerate = false;
+                this.state.showDidRestore = false;
+                this.state.showUnlockModal = false;
+                this.state.isFirstTime = false;
+                this.state.extensionPassword = newPassword;
+                this.state.showDidSelector = false;
+                this.state.showForgotPasswordModal = false;
+
+                // Store the restored DID and new password
+                const passwordHash = CryptoJS.SHA256(newPassword).toString();
+                const encryptedPassword = CryptoJS.AES.encrypt(newPassword, newPassword).toString();
+                const didKeyPairs = {
+                    [didData.did]: {
+                        name: didData.name,
+                        publicKey: didData.publicKey,
+                        secretKey: didData.secretKey,
+                        createdAt: didData.createdAt,
+                    },
+                };
+
+                chrome.storage.local.set(
+                    {
+                        extensionPasswordHash: passwordHash,
+                        extensionPassword: encryptedPassword,
+                        didKeyPairs: JSON.stringify(didKeyPairs),
+                    },
+                    () => {
+                        console.log("New password and restored DID set after wallet reset");
+                        localStorage.setItem("didKeyPairs", JSON.stringify(didKeyPairs));
+                        localStorage.setItem("activeTab", "profile");
+                        this.addResponse(`Wallet reset successfully! DID "${didData.name}" restored.`);
+                        // Navigate to profile tab to show the restored DID
+                        this.state.activeTab = "profile";
+                    }
+                );
+            });
+        },
+
         showConfirmModal({ title, message, callback }) {
             this.state.confirmModal = { title, message, callback };
             this.state.showConfirmModal = true;
@@ -354,9 +426,9 @@ export default {
             this.state.showDidGenerate = tab === "generate";
             this.state.showDidRestore = tab === "restore";
             // localStorage.setItem("activeTab", tab);
-            toast.info(
-                `Switched to ${this.tabs.find((t) => t.id === tab).label} tab.`
-            );
+            // toast.info(
+            //     `Switched to ${this.tabs.find((t) => t.id === tab).label} tab.`
+            // );
         },
 
         persistDontShowOnboarding() {
@@ -378,7 +450,7 @@ export default {
             this.loadStoredDids();
             this.addResponse("Key pair created or restored!");
             if (this.state.storedDids.length > 0) {
-                toast.success("Key pair created or restored!");
+                // toast.success("Key pair created or restored!");
             }
             this.state.showDidGenerate = false;
             this.state.showDidRestore = false;

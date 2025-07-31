@@ -1,19 +1,19 @@
 <!-- DidRestore.vue -->
 <template>
   <div class="text-white flex flex-col items-center justify-start p-2 w-full h-full">
-    <h3 class="text-white text-2xl font-bold mb-2">Restore Your DID</h3>
+    <h3 class="text-white text-2xl font-bold mb-2">Restore Your Identity</h3>
     <p class="text-center text-gray-500 text-base font-semibold">
-      Paste your private key to restore your DID. Then, <br> set a new password to protect it.
+      Paste your private key to restore your Identity. Then, <br> set a new password to protect it.
     </p>
     <div class="mt-6 mb-2 w-full max-w-md border border-gray-700 rounded-lg p-4">
       <div v-if="!keyInfo">
-        <label for="did-name" class="text-white text-sm font-medium mb-2 block">DID Name</label>
+        <label for="did-name" class="text-white text-sm font-medium mb-2 block">Identity Name</label>
         <input
           id="did-name"
           v-model="didName"
           type="text"
           class="w-full bg-transparent text-white text-base border border-gray-700 rounded px-3 py-2 mb-4 focus:ring-2 focus:ring-[#D7DF23] outline-none"
-          placeholder="Enter a name for your DID"
+          placeholder="Enter a name for your Identity"
         />
         <label for="private-key" class="text-white text-sm font-medium mb-2 block">Private Key</label>
         <input
@@ -28,7 +28,7 @@
           :disabled="isLoading || !didName.trim() || !restoreKeyInput.trim()"
           @click="restorePrivateKey"
         >
-          Restore DID
+          Restore ID
           <span
             v-if="isLoading"
             class="animate-spin h-4 w-4 border-2 border-black border-t-transparent rounded-full"
