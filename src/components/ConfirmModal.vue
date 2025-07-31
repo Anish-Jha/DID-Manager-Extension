@@ -1,39 +1,59 @@
+<!-- ConfirmModal.vue -->
 <template>
-  <Dialog as="div" :open="true" @close="$emit('close')" class="relative z-50">
-    <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" aria-hidden="true"></div>
-    <div class="fixed inset-0 flex items-center justify-center p-4">
-      <DialogPanel
-        class="bg-gray-900 rounded-lg p-6 max-w-md w-full shadow-xl transform transition-all"
+  <div
+    class="fixed bottom-0 left-0 w-full max-w-md mx-auto bg-[#15161E] border border-gray-700 rounded-t-lg p-4 shadow-lg z-50 animate-slide-up"
+    style="max-height: 300px;"
+  >
+    <h3 class="text-white text-lg font-semibold mb-2">{{ title }}</h3>
+    <p class="text-gray-500 text-sm mb-4">{{ message }}</p>
+    <div class="flex gap-3">
+      <button
+        class="bg-[#D7DF23] text-black text-lg font-semibold px-4 py-2 rounded hover:bg-yellow-500 transition flex items-center justify-center gap-2 flex-1"
+        @click="$emit('confirm')"
       >
-        <DialogTitle class="text-xl font-semibold text-[#d7df23] mb-2">{{ title }}</DialogTitle>
-        <DialogDescription class="text-gray-300 mb-4">{{ message }}</DialogDescription>
-        <div class="flex gap-2">
-          <button
-            class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-500 flex-1 transition-colors"
-            @click="$emit('confirm')"
-          >
-            Confirm
-          </button>
-          <button
-            class="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-600 flex-1 transition-colors"
-            @click="$emit('close')"
-          >
-            Cancel
-          </button>
-        </div>
-      </DialogPanel>
+        Confirm
+      </button>
+      <button
+        class="bg-gray-600 text-white text-lg font-semibold px-4 py-2 rounded hover:bg-gray-500 transition flex items-center justify-center gap-2 flex-1"
+        @click="$emit('close')"
+      >
+        Cancel
+      </button>
     </div>
-  </Dialog>
+  </div>
 </template>
 
 <script>
-import { Dialog, DialogPanel, DialogTitle, DialogDescription } from '@headlessui/vue';
-
 export default {
-  components: { Dialog, DialogPanel, DialogTitle, DialogDescription },
+  name: 'ConfirmModal',
   props: {
-    title: String,
-    message: String,
+    title: {
+      type: String,
+      required: true,
+    },
+    message: {
+      type: String,
+      required: true,
+    },
   },
 };
 </script>
+
+<style scoped>
+* {
+  font-family: 'Rethink Sans', sans-serif !important;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+</style>
