@@ -4,23 +4,15 @@
     <h3 class="text-green-400 text-lg font-semibold mb-4">Manage Keys</h3>
 
     <div v-if="selectedDid" class="flex gap-3">
-      <button
-        class="bg-yellow-600 text-black px-4 py-2 rounded hover:bg-yellow-400 transition"
-        :disabled="isLoading"
-        @click="backupPrivateKey"
-      >
+      <button class="bg-yellow-600 text-black px-4 py-2 rounded hover:bg-yellow-400 transition" :disabled="isLoading"
+        @click="backupPrivateKey">
         Backup Private Key
       </button>
-      <button
-        class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500 transition flex items-center gap-2"
-        :disabled="isLoading"
-        @click="promptDeleteKeyPair"
-      >
+      <button class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500 transition flex items-center gap-2"
+        :disabled="isLoading" @click="promptDeleteKeyPair">
         Delete Key Pair
-        <span
-          v-if="isLoading && action === 'delete'"
-          class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"
-        ></span>
+        <span v-if="isLoading && action === 'delete'"
+          class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
       </button>
     </div>
   </div>
@@ -73,10 +65,11 @@ export default {
         return;
       }
       this.$emit('show-confirm', {
-        title: 'Delete DID',
-        message: `Are you sure you want to delete DID ${this.selectedDid}? This cannot be undone.`,
+        message: `Are you sure you want to delete DID "${keyPair.name || this.truncateDid(this.state.selectedDid)}"? <span class="text_small" style="color:red"><br/>This cannot be undone.</span>`,
+        source: "delete",
         callback: (confirmed) => {
           if (confirmed) this.deleteKeyPair();
+          this.state.showConfirmModal = false;
         },
       });
     },

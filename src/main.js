@@ -8,6 +8,6 @@ const app = createApp(App);
 app.use(Vue3Toasity, {
   autoClose: 3000,
   theme: 'dark',
-  position: 'top-right',
+  position: 'bottom-right',
 });
 app.mount('#app');

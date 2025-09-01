@@ -9,7 +9,6 @@
       </header>
       <DialogPanel class="relative p-4 w-full max-w-md transform transition-all duration-300 ease-out">
         <div class="flex flex-col justify-center items-center gap-4 mb-2">
-          <img src="../icons/onboard.svg" alt="DID:Decast Logo" class="w-36 h-36" aria-hidden="true" />
           <DialogTitle as="h2" class="text-xl font-semibold text-center text-white mt-4">
             Reset Your Wallet
           </DialogTitle>

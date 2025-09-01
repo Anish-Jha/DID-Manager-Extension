@@ -1,6 +1,7 @@
+<!-- DidSelector.vue -->
 <template>
   <div class="flex flex-col items-center justify-center w-full h-full">
-    <h3 class="text-xl font-semibold text-center text-white mb-4">Connect a Identity</h3>
+    <h3 class="text-xl font-semibold text-center text-white mb-4">Connect an Identity</h3>
     <p class="text-gray-500 text-sm font-semibold text-center mb-8">
       Your DID uniquely identifies you on<br />decentralized platforms.
     </p>
@@ -11,7 +12,7 @@
         v-model="localSelectedDid"
         class="w-full bg-transparent text-white bg-gray-800 text-base border border-gray-700 rounded px-3 py-2 mb-4 focus:ring-2 focus:ring-[#D7DF23] outline-none"
       >
-        <option value="" disabled class="text-white bg-[#15161E]">Choose a ID</option>
+        <option value="" disabled class="text-white bg-[#15161E]">Choose an ID</option>
         <option
           v-for="entry in storedDids"
           :key="entry.did"
@@ -22,13 +23,13 @@
         </option>
       </select>
 
-      <button
+      <!-- <button
         v-if="localSelectedDid"
         class="w-full bg-[#d7df23] text-black px-6 py-2 rounded-lg font-semibold text-sm hover:bg-[#d7df23]/90 transition"
         @click="confirmSelection"
       >
         Confirm
-      </button>
+      </button> -->
     </div>
 
     <p v-if="storedDids.length === 0" class="text-gray-500 text-sm text-center mt-4">
@@ -56,15 +57,23 @@ export default {
   computed: {
     storedDids() {
       return this.dids
-        .map((did) => {
+        .map((didObj) => {
           const stored = JSON.parse(localStorage.getItem('didKeyPairs') || '{}');
           return {
-            did,
-            name: stored[did]?.name || '',
-            createdAt: stored[did]?.createdAt || new Date().toISOString(),
+            did: didObj.did,
+            name: stored[didObj.did]?.name || '',
+            createdAt: stored[didObj.did]?.createdAt || new Date().toISOString(),
           };
         })
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    },
+  },
+  watch:{
+    localSelectedDid(newVal) {
+      this.errorMessage = '';
+      if (newVal) {
+        this.confirmSelection();
+      }
     },
   },
   methods: {
@@ -75,13 +84,16 @@ export default {
       }
 
       this.errorMessage = '';
+      console.log('Selected DID:', this.localSelectedDid);
 
+      // Emit DID as an object for nonce signing
       this.$emit('did-selected', { did: this.localSelectedDid });
 
+      // Post message to content script
       window.postMessage(
         {
           action: 'did-selected',
-          did: this.localSelectedDid,
+          did: { did: this.localSelectedDid },
         },
         window.location.origin
       );

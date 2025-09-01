@@ -35,10 +35,10 @@
                             No DIDs available. Please generate or restore a DID.
                         </div>
                     </div>
-                    <div v-if="state.activeTab === 'generate'">
+                    <div v-if="state.activeTab === 'generate' || state.storedDids.length === 0">
                         <DidGenerate :extension-password="state.extensionPassword || 'temp'"
                             :from-settings="state.fromSettings" @key-generated="handleKeyGenerated"
-                            @response="addResponse" @back="handleClaimSuccessContinue" />
+                            @response="addResponse" @back="handleBack" />
                     </div>
                     <div v-if="state.activeTab === 'restore'">
                         <DidRestore :extension-password="state.extensionPassword" @key-generated="handleKeyGenerated"
@@ -72,8 +72,7 @@
             <PromptModal v-if="state.showPromptModal" :title="state.promptModal.title"
                 :placeholder="state.promptModal.placeholder" @submit="handlePromptSubmit" @close="closePromptModal" />
             <ConfirmModal v-if="state.showConfirmModal" :title="state.confirmModal.title"
-                :message="state.confirmModal.message" @confirm="handleConfirm" @close="closeConfirmModal"
-                :source="state.confirmModal.source" />
+                :message="state.confirmModal.message" @confirm="handleConfirm" @close="closeConfirmModal" />
         </template>
     </div>
 </template>
@@ -147,6 +146,9 @@ export default {
                 showPasswordSetup: false,
                 showSettingsContainer: false,
                 fromSettings: false,
+                lastActivity: null,
+                inactivityTimer: null,
+
             },
         };
     },
@@ -167,31 +169,56 @@ export default {
                 this.handleDidSelected(did);
             }
         });
-        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-            if (message.action === "show-nonce-confirm-modal") {
+       chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+            if (message.action === 'show-nonce-confirm-modal') {
                 this.state.showConfirmModal = true;
                 this.state.confirmModal = {
-                    title: "Confirm Nonce Signing",
-                    message: `The website ${message.origin} is requesting to sign a nonce: ${message.nonce}. <span style="text-decoration:underline; color: whitesmoke"><br/>Do you want to proceed?</span> `,
-                    source: "nonce",
+                    title: 'Confirm Nonce Signing',
+                    message: `The website ${message.origin} is requesting to sign a nonce: ${message.nonce}. Do you want to proceed?`,
                     callback: (confirmed) => {
-                        chrome.runtime.sendMessage({ action: "nonce-confirm-response", confirmed });
+                        chrome.runtime.sendMessage({
+                            action: 'nonce-confirm-response',
+                            confirmed,
+                        });
                         this.state.showConfirmModal = false;
-                        window.close();
                     },
                 };
             }
         });
+
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             if (message.action === "show-did-selector") {
-                console.log("Received show-did-selector message:", message);
+                console.log('Received show-did-selector message:', message);
                 this.state.showDidSelector = true;
             }
         });
     },
     methods: {
+        startInactivityTimer() {
+            const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+            this.state.inactivityTimer = setInterval(() => {
+                chrome.storage.local.get(['lastActivity'], (result) => {
+                    if (result.lastActivity && Date.now() - result.lastActivity > INACTIVITY_TIMEOUT) {
+                        this.lockExtension();
+                    }
+                });
+            }, 60000); // Check every minute
+        },
+        updateLastActivity() {
+            this.state.lastActivity = Date.now();
+            chrome.storage.local.set({ lastActivity: this.state.lastActivity }, () => {
+                if (chrome.runtime.lastError) {
+                    console.error('Error storing lastActivity:', chrome.runtime.lastError.message);
+                }
+            });
+        },
+        lockExtension() {
+            this.state.extensionPassword = '';
+            this.state.showUnlockModal = true;
+            chrome.runtime.sendMessage({ action: 'clear-password' });
+        },
         checkFirstTime() {
-            chrome.storage.local.get(["extensionPasswordHash"], (result) => {
+            chrome.storage.local.get(['extensionPasswordHash', 'lastActivity'], (result) => {
                 if (!result.extensionPasswordHash) {
                     this.state.isFirstTime = true;
                     this.state.showOnboarding = true;
@@ -200,7 +227,15 @@ export default {
                     this.state.showSaveBackupKey = false;
                 } else {
                     this.state.isFirstTime = false;
-                    this.state.showUnlockModal = true;
+                    this.state.lastActivity = result.lastActivity || Date.now();
+                    const INACTIVITY_TIMEOUT = 15 * 60 * 1000;
+                    if (!result.lastActivity || Date.now() - result.lastActivity > INACTIVITY_TIMEOUT) {
+                        this.state.showUnlockModal = true;
+                        this.state.extensionPassword = '';
+                    } else {
+                        this.state.showUnlockModal = false;
+                        this.loadStoredDids();
+                    }
                     this.state.showOnboarding = false;
                     this.state.showPasswordSetup = false;
                     this.state.showSaveBackupKey = false;
@@ -208,15 +243,27 @@ export default {
             });
         },
         handleUnlock(password) {
-            this.state.extensionPassword = password;
-            this.state.showUnlockModal = false;
-            this.state.showOnboarding = !this.state.dontShowOnboarding && this.state.storedDids.length === 0;
-            this.addResponse("Extension unlocked successfully!");
+            chrome.storage.local.get(['extensionPasswordHash'], (result) => {
+                const passwordHash = CryptoJS.SHA256(password).toString();
+                if (passwordHash !== result.extensionPasswordHash) {
+                    this.addResponse('Incorrect password.');
+                    return;
+                }
+                this.state.extensionPassword = password;
+                this.state.showUnlockModal = false;
+                this.state.showOnboarding = !this.state.dontShowOnboarding && this.state.storedDids.length === 0;
+                this.updateLastActivity();
+                chrome.runtime.sendMessage({ action: 'password-unlocked', decryptedPassword: password });
+                this.addResponse('Extension unlocked successfully!');
+                this.loadStoredDids();
+            });
         },
         handleSettings() {
+            this.updateLastActivity();
             this.state.showSettingsContainer = true;
         },
         handleGenerateDid() {
+            this.updateLastActivity();
             this.state.showOnboarding = false;
             this.state.showSettingsContainer = false;
             this.state.fromSettings = true;
@@ -226,6 +273,7 @@ export default {
             localStorage.setItem("activeTab", "generate");
         },
         showSettings() {
+            this.updateLastActivity();
             this.state.activeTab = "settings";
             this.state.showOnboarding = false;
             this.state.showSettingsContainer = false;
@@ -234,6 +282,7 @@ export default {
             localStorage.setItem("activeTab", "settings");
         },
         handleRestoreDid() {
+            this.updateLastActivity();
             this.state.showOnboarding = false;
             this.state.showSettingsContainer = false;
             this.state.activeTab = "restore";
@@ -242,6 +291,7 @@ export default {
             localStorage.setItem("activeTab", "restore");
         },
         handlePasswordSet(password) {
+            this.updateLastActivity();
             this.state.extensionPassword = password;
             this.state.isFirstTime = false;
             const passwordHash = CryptoJS.SHA256(password).toString();
@@ -288,7 +338,7 @@ export default {
                                 this.state.showPasswordSetup = false;
                                 this.state.activeTab = "claim-success";
                                 localStorage.setItem("activeTab", "claim-success");
-                                // this.addResponse("Extension password set successfully!");
+                                this.addResponse("Extension password set successfully!");
                             });
                         });
                     } else {
@@ -321,6 +371,7 @@ export default {
                     chrome.tabs.sendMessage(tab.id, { action: "did-selected", did });
                 });
             });
+            this.state.showDidSelector = false;
         },
         loadStoredDids() {
             const stored = localStorage.getItem("didKeyPairs");
@@ -374,6 +425,7 @@ export default {
             }
         },
         showConfirmModal(payload) {
+            this.updateLastActivity();
             this.state.showConfirmModal = true;
             this.state.confirmModal = {
                 title: payload.title,
@@ -427,8 +479,7 @@ export default {
             this.state.showConfirmModal = true;
             this.state.confirmModal = {
                 title: "Delete DID",
-                message: `Are you sure you want to delete DID "${keyPair.name || this.truncateDid(this.state.selectedDid)}"? <span class="text_small" style="color:red"><br/>This cannot be undone.</span>`,
-                source: "delete",
+                message: `Are you sure you want to delete DID "${keyPair.name || this.truncateDid(this.state.selectedDid)}"? This cannot be undone.`,
                 callback: (confirmed) => {
                     if (confirmed) this.deleteKeyPair();
                     this.state.showConfirmModal = false;

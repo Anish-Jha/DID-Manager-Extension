@@ -77,7 +77,7 @@ export default {
                 } else if (response?.error) {
                   this.$emit('response', response.error);
                 } else {
-                  this.$emit('response', 'Extension unlocked successfully!');
+                  // this.$emit('response', 'Extension unlocked successfully!');
                 }
               });
               this.password = '';
