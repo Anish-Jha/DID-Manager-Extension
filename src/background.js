@@ -8,18 +8,18 @@ let decryptedPassword = null;
 
 chrome.runtime.onMessageExternal.addListener(
   (request, sender, sendResponse) => {
+    console.log("External message received:", request);
     if (request.action === "open-did-popup") {
       currentRequestOrigin = sender.origin;
-
       chrome.action.openPopup(() => {
         setTimeout(() => {
           chrome.runtime.sendMessage({
             action: "show-did-selector",
             origin: sender.origin,
           });
-        }, 500); // wait for the popup to mount
+        }, 200);
       });
-
+      sendResponse({ status: "popup-opened" });
       return true;
     }
 
@@ -30,51 +30,35 @@ chrome.runtime.onMessageExternal.addListener(
         sender: sender,
         sendResponse: sendResponse,
       };
-
+      console.log("Storing nonce request:", nonceRequest);
       chrome.runtime.sendMessage({
         action: "show-nonce-confirm-modal",
         nonce: request.nonce,
         origin: sender.origin,
       });
-
       chrome.storage.local.set({ pendingNonceRequest: nonceRequest }, () => {
         if (chrome.runtime.lastError) {
-          console.error(
-            "Error storing nonce request:",
-            chrome.runtime.lastError.message
-          );
+          console.error("Error storing nonce request:", chrome.runtime.lastError.message);
           sendResponse({ error: "Failed to store nonce request" });
         }
       });
-
       return true;
     }
   }
 );
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("Internal message received:", message);
   if (message.action === "password-unlocked") {
     decryptedPassword = message.decryptedPassword;
-    chrome.storage.session.set(
-      {
-        isUnlocked: true,
-        decryptedPassword: message.decryptedPassword,
-      },
-      () => {
-        if (chrome.runtime.lastError) {
-          console.error("Error storing session data:", chrome.runtime.lastError.message);
-          sendResponse({ status: "error", error: "Failed to store session data" });
-        } else {
-          console.log("Decrypted password stored in session");
-          sendResponse({ status: "password-stored" });
-        }
-      }
-    );
+    console.log("Password-unlocked: decryptedPassword set in memory");
+    sendResponse({ status: "password-stored" });
     return true;
   }
 
   if (message.action === "is-unlocked") {
     chrome.storage.session.get(["isUnlocked"], (result) => {
+      console.log("is-unlocked check:", result);
       sendResponse({ unlocked: Boolean(result.isUnlocked) });
     });
     return true;
@@ -82,7 +66,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "lock") {
     decryptedPassword = null;
-    chrome.storage.session.remove(["isUnlocked", "decryptedPassword"], () => {
+    console.log("Locking extension, clearing session storage");
+    chrome.storage.session.clear(() => {
       if (chrome.runtime.lastError) {
         console.error("Error clearing session data:", chrome.runtime.lastError.message);
         sendResponse({ status: "error", error: "Failed to clear session data" });
@@ -94,67 +79,87 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "nonce-confirm-response") {
-    chrome.storage.local.get(
-      ["pendingNonceRequest", "didKeyPairs"],
-      (result) => {
-        const nonceRequest = result.pendingNonceRequest;
-        if (!nonceRequest) {
-          sendResponse({ error: "No pending nonce request" });
+    console.log("Nonce confirm response:", message);
+    chrome.storage.local.get(["pendingNonceRequest", "didKeyPairs"], (result) => {
+      console.log("Retrieved from chrome.storage.local:", result);
+      const nonceRequest = result.pendingNonceRequest;
+      if (!nonceRequest) {
+        console.error("No pending nonce request found");
+        sendResponse({ error: "No pending nonce request" });
+        return;
+      }
+
+      if (message.confirmed) {
+        let stored = result.didKeyPairs;
+        if (typeof stored === "string") {
+          try {
+            stored = JSON.parse(stored);
+          } catch (e) {
+            console.error("Error parsing didKeyPairs JSON:", e);
+            sendResponse({ error: "Corrupted DID storage" });
+            return;
+          }
+        }
+
+        const didKey = typeof nonceRequest.did === "object" ? nonceRequest.did.did : nonceRequest.did;
+        const entry = stored[didKey];
+        console.log("DID entry for signing:", entry);
+
+        if (!entry) {
+          console.error("DID not found for key:", didKey);
+          nonceRequest.sendResponse({ error: "DID not found" });
           return;
         }
 
-        if (message.confirmed) {
-          let stored = result.didKeyPairs;
-          if (typeof stored === "string") {
-            try {
-              stored = JSON.parse(stored);
-            } catch (e) {
-              console.error("Error parsing didKeyPairs JSON:", e);
-              sendResponse({ error: "Corrupted DID storage" });
-              return;
-            }
-          }
-
-          const didKey =
-            typeof nonceRequest.did === "object"
-              ? nonceRequest.did.did
-              : nonceRequest.did;
-          const entry = stored[didKey];
-
-          if (!entry) {
-            nonceRequest.sendResponse({ error: "DID not found" });
-            return;
-          }
-
-          if (!decryptedPassword) {
-            // Try to retrieve from session storage as fallback
-            chrome.storage.session.get(["decryptedPassword"], (sessionResult) => {
-              if (sessionResult.decryptedPassword) {
-                decryptedPassword = sessionResult.decryptedPassword;
-                signNonce(entry, nonceRequest, sendResponse);
-              } else {
-                nonceRequest.sendResponse({
-                  error: "Extension password not found",
-                });
+        if (!decryptedPassword) {
+          console.log("decryptedPassword not in memory, attempting to retrieve from session");
+          chrome.storage.session.get(["encryptedPassword", "passwordSalt"], (sessionResult) => {
+            console.log("Session storage data:", sessionResult);
+            if (sessionResult.encryptedPassword && sessionResult.passwordSalt) {
+              try {
+                decryptedPassword = CryptoJS.AES.decrypt(
+                  sessionResult.encryptedPassword,
+                  sessionResult.passwordSalt
+                ).toString(CryptoJS.enc.Utf8);
+                console.log("Decrypted password from session:", !!decryptedPassword);
+                if (decryptedPassword) {
+                  signNonce(entry, nonceRequest, sendResponse);
+                } else {
+                  console.error("Failed to decrypt password: empty result");
+                  nonceRequest.sendResponse({ error: "Failed to decrypt password" });
+                }
+              } catch (error) {
+                console.error("Decryption error:", error.message);
+                nonceRequest.sendResponse({ error: "Failed to decrypt password: " + error.message });
               }
-            });
-            return;
-          }
-
-          signNonce(entry, nonceRequest, sendResponse);
-        } else {
-          nonceRequest.sendResponse({ error: "User canceled nonce signing" });
+            } else {
+              console.error("Session data missing: encryptedPassword or passwordSalt not found");
+              nonceRequest.sendResponse({ error: "Extension password not found" });
+            }
+          });
+          return;
         }
 
-        chrome.storage.local.remove(["pendingNonceRequest"]);
+        signNonce(entry, nonceRequest, sendResponse);
+      } else {
+        console.log("Nonce signing canceled by user");
+        nonceRequest.sendResponse({ error: "User canceled nonce signing" });
       }
-    );
+
+      chrome.storage.local.remove("pendingNonceRequest", () => {
+        if (chrome.runtime.lastError) {
+          console.error("Error clearing pending nonce request:", chrome.runtime.lastError.message);
+        }
+      });
+    });
     return true;
   }
 
   if (message.action === "did-auth-complete" && currentRequestOrigin) {
+    console.log("DID auth complete, forwarding to tabs");
     chrome.tabs.query({ url: currentRequestOrigin + "/*" }, (tabs) => {
       if (chrome.runtime.lastError) {
+        console.error("Error querying tabs:", chrome.runtime.lastError.message);
         sendResponse({ error: "Failed to query tabs" });
         return;
       }
@@ -167,17 +172,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "get-current-origin") {
+    console.log("Returning current origin:", currentRequestOrigin);
     sendResponse({ origin: currentRequestOrigin });
     return true;
   }
 });
 
 function signNonce(entry, nonceRequest, sendResponse) {
+  console.log("Attempting to sign nonce with entry:", entry);
   try {
-    const decrypted = CryptoJS.AES.decrypt(
-      entry.secretKey,
-      decryptedPassword
-    ).toString(CryptoJS.enc.Utf8);
+    const decrypted = CryptoJS.AES.decrypt(entry.secretKey, decryptedPassword).toString(CryptoJS.enc.Utf8);
     if (!decrypted) {
       throw new Error("Incorrect password or decryption failed");
     }
@@ -190,8 +194,10 @@ function signNonce(entry, nonceRequest, sendResponse) {
     const nonceBytes = new TextEncoder().encode(nonceRequest.nonce);
     const sigBytes = ed.sign(secretKeyBytes, nonceBytes);
     const signature = bs58.encode(sigBytes);
+    console.log("Signature generated:", signature);
 
     chrome.tabs.query({}, (tabs) => {
+      console.log("Sending nonce-signed message to tabs:", tabs.length);
       tabs.forEach((tab) => {
         chrome.tabs.sendMessage(tab.id, {
           action: "nonce-signed",
@@ -201,11 +207,9 @@ function signNonce(entry, nonceRequest, sendResponse) {
       });
     });
 
-    nonceRequest.sendResponse({ status: "nonce-signed" });
+    nonceRequest.sendResponse({ status: "nonce-signed", signature });
   } catch (err) {
     console.error("Error signing nonce:", err.message);
-    nonceRequest.sendResponse({
-      error: `Failed to sign nonce: ${err.message}`,
-    });
+    nonceRequest.sendResponse({ error: `Failed to sign nonce: ${err.message}` });
   }
 }

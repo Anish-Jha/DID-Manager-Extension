@@ -95,35 +95,41 @@ export default {
       }
 
       const passwordHash = CryptoJS.SHA256(this.password).toString();
-      const encryptedPassword = CryptoJS.AES.encrypt(this.password, this.password).toString();
+      const salt = CryptoJS.lib.WordArray.random(16).toString();
+      const encryptedPassword = CryptoJS.AES.encrypt(this.password, salt).toString();
 
-      chrome.storage.local.set(
+      chrome.storage.session.set(
         {
-          extensionPasswordHash: passwordHash,
-          extensionPassword: encryptedPassword,
+          encryptedPassword: encryptedPassword,
+          passwordSalt: salt,
+          isUnlocked: true,
         },
         () => {
           if (chrome.runtime.lastError) {
-            console.error('Error storing password:', chrome.runtime.lastError.message);
+            console.error('Error storing session password:', chrome.runtime.lastError.message);
             this.$emit('response', 'Error setting extension password.');
             this.isLoading = false;
             return;
           }
-          // this.$emit('response', 'Extension password set successfully!');
-          this.$emit('password-set', this.password);
-          this.password = '';
-          this.confirmPassword = '';
-          this.isAcknowledged = false;
-          this.isLoading = false;
+          chrome.storage.local.set(
+            { extensionPasswordHash: passwordHash },
+            () => {
+              if (chrome.runtime.lastError) {
+                console.error('Error storing password hash:', chrome.runtime.lastError.message);
+                this.$emit('response', 'Error setting extension password.');
+                this.isLoading = false;
+                return;
+              }
+              this.$emit('password-set', this.password);
+              this.password = '';
+              this.confirmPassword = '';
+              this.isAcknowledged = false;
+              this.isLoading = false;
+            }
+          );
         }
       );
     },
   },
 };
 </script>
-
-<style scoped>
-* {
-  font-family: 'Rethink Sans', sans-serif !important;
-}
-</style>

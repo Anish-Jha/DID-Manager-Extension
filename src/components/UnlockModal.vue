@@ -52,45 +52,47 @@ export default {
   methods: {
     unlock() {
       this.isLoading = true;
-      chrome.storage.local.get(['extensionPasswordHash', 'extensionPassword'], (result) => {
+      chrome.storage.local.get(['extensionPasswordHash'], (result) => {
         const storedHash = result.extensionPasswordHash;
-        const encryptedPassword = result.extensionPassword;
         const inputHash = CryptoJS.SHA256(this.password).toString();
 
         if (storedHash && inputHash === storedHash) {
-          try {
-            const decryptedPassword = CryptoJS.AES.decrypt(
-              encryptedPassword,
-              this.password
-            ).toString(CryptoJS.enc.Utf8);
-            if (decryptedPassword) {
-              // Emit to App.vue
-              this.$emit('unlock', decryptedPassword);
-              // Send to background.js
-              chrome.runtime.sendMessage({
-                action: 'password-unlocked',
-                decryptedPassword,
-              }, (response) => {
-                if (chrome.runtime.lastError) {
-                  console.error('Error sending password-unlocked message:', chrome.runtime.lastError.message);
-                  this.$emit('response', 'Error communicating with background script.');
-                } else if (response?.error) {
-                  this.$emit('response', response.error);
-                } else {
-                  // this.$emit('response', 'Extension unlocked successfully!');
+          const salt = CryptoJS.lib.WordArray.random(16).toString();
+          const encryptedPassword = CryptoJS.AES.encrypt(this.password, salt).toString();
+          chrome.storage.session.set(
+            {
+              encryptedPassword: encryptedPassword,
+              passwordSalt: salt,
+              isUnlocked: true,
+            },
+            () => {
+              if (chrome.runtime.lastError) {
+                console.error('Error storing session data:', chrome.runtime.lastError.message);
+                this.$emit('response', 'Error storing session data.');
+                this.isLoading = false;
+                return;
+              }
+              chrome.runtime.sendMessage(
+                { action: 'password-unlocked', decryptedPassword: this.password },
+                (response) => {
+                  if (chrome.runtime.lastError) {
+                    console.error('Error sending password-unlocked message:', chrome.runtime.lastError.message);
+                    this.$emit('response', 'Error communicating with background script.');
+                    this.isLoading = false;
+                    return;
+                  }
+                  if (response?.error) {
+                    this.$emit('response', response.error);
+                    this.isLoading = false;
+                  } else {
+                    this.$emit('unlock', this.password);
+                    this.password = '';
+                    this.isLoading = false;
+                  }
                 }
-              });
-              this.password = '';
-              this.isLoading = false;
-            } else {
-              this.$emit('response', 'Incorrect password.');
-              this.isLoading = false;
+              );
             }
-          } catch (error) {
-            console.error('Decryption error:', error.message);
-            this.$emit('response', 'Error decrypting password.');
-            this.isLoading = false;
-          }
+          );
         } else {
           this.$emit('response', 'Incorrect password.');
           this.isLoading = false;
@@ -100,9 +102,3 @@ export default {
   },
 };
 </script>
-
-<style scoped>
-* {
-  font-family: 'Rethink Sans', sans-serif !important;
-}
-</style>
