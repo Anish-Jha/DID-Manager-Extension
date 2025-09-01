@@ -1,81 +1,81 @@
 <!-- App.vue -->
 <template>
-  <div id="app"
-      class="bg-[#15161E] text-white pt-4 pl-4 pr-4 w-[450px] h-[600px] flex flex-col items-center justify-start">
-    <UnlockModal v-if="state.showUnlockModal" @unlock="handleUnlock" @response="addResponse"
-        @forgot-password="handleForgotPasswordModal" />
-    <ForgotPassword v-if="state.showForgotPasswordModal" @response="addResponse" @wallet-reset="handleWalletReset"
-        @close="state.showForgotPasswordModal = false" />
-    <PasswordSetup v-if="state.showPasswordSetup" @close="state.showPasswordSetup = false" @response="addResponse"
-        @password-set="handlePasswordSet" />
-    <SettingsContainer v-if="state.showSettingsContainer" @close="state.showSettingsContainer = false"
-        @generate-did="handleGenerateDid" @restore-did="handleRestoreDid" @settings-did="showSettings"
-        @delete-did="promptDeleteKeyPair" @response="addResponse" @lock="handleLock" />
-    <template v-else>
-      <header
-          class="flex items-center justify-between gap-3 mb-4 w-full border-b border-gray-700 pb-2 sticky top-0">
-        <div class="flex items-center gap-2 justify-start">
-          <img src="./icons/logot.svg" alt="DID:Decast Logo" class="w-auto h-8" />
-        </div>
-        <div>
-          <img src="./icons/settings.svg" alt="Settings" class="cursor-pointer w-6 h-6"
-              @click="handleSettings">
-        </div>
-      </header>
+    <div id="app"
+        class="bg-[#15161E] text-white pt-4 pl-4 pr-4 w-[450px] h-[600px] flex flex-col items-center justify-start">
+        <UnlockModal v-if="state.showUnlockModal" @unlock="handleUnlock" @response="addResponse"
+            @forgot-password="handleForgotPasswordModal" />
+        <ForgotPassword v-if="state.showForgotPasswordModal" @response="addResponse" @wallet-reset="handleWalletReset"
+            @close="state.showForgotPasswordModal = false" />
+        <PasswordSetup v-if="state.showPasswordSetup" @close="state.showPasswordSetup = false" @response="addResponse"
+            @password-set="handlePasswordSet" />
+        <SettingsContainer v-if="state.showSettingsContainer" @close="state.showSettingsContainer = false"
+            @generate-did="handleGenerateDid" @restore-did="handleRestoreDid" @settings-did="showSettings"
+            @delete-did="promptDeleteKeyPair" @response="addResponse" @lock="handleLock" />
+        <template v-else>
+            <header
+                class="flex items-center justify-between gap-3 mb-4 w-full border-b border-gray-700 pb-2 sticky top-0">
+                <div class="flex items-center gap-2 justify-start">
+                    <img src="./icons/logot.svg" alt="DID:Decast Logo" class="w-auto h-8" />
+                </div>
+                <div>
+                    <img src="./icons/settings.svg" alt="Settings" class="cursor-pointer w-6 h-6"
+                        @click="handleSettings">
+                </div>
+            </header>
 
-      <div class="main_container flex flex-col items-center justify-between mx-auto mt-4 p-2 w-full h-full">
-        <div class="tab-content flex-grow w-full overflow-y-auto">
-          <div v-if="state.activeTab === 'profile'" class="space-y-4">
-            <DidProfile v-if="state.storedDids.length > 0 && !state.showDidSelector"
-                v-model:selected-did="state.selectedDid" :responses="state.responses"
-                :stored-dids="state.storedDids" @update:selectedDid="updateSelectedDid"
-                @response="addResponse" @clear-responses="clearResponses" />
-            <DidSelector v-if="state.showDidSelector" :dids="state.storedDids"
-                @did-selected="handleDidSelected" />
-            <div v-else-if="state.storedDids.length === 0" class="text-gray-500 text-center">
-              No DIDs available. Please generate or restore a DID.
+            <div class="main_container flex flex-col items-center justify-between mx-auto mt-4 p-2 w-full h-full">
+                <div class="tab-content flex-grow w-full overflow-y-auto">
+                    <div v-if="state.activeTab === 'profile'" class="space-y-4">
+                        <DidProfile v-if="state.storedDids.length > 0 && !state.showDidSelector"
+                            v-model:selected-did="state.selectedDid" :responses="state.responses"
+                            :stored-dids="state.storedDids" @update:selectedDid="updateSelectedDid"
+                            @response="addResponse" @clear-responses="clearResponses" />
+                        <DidSelector v-if="state.showDidSelector" :dids="state.storedDids"
+                            @did-selected="handleDidSelected" />
+                        <div v-else-if="state.storedDids.length === 0" class="text-gray-500 text-center">
+                            No DIDs available. Please generate or restore a DID.
+                        </div>
+                    </div>
+                    <div v-if="state.activeTab === 'generate'">
+                        <DidGenerate :extension-password="state.extensionPassword || 'temp'"
+                            :from-settings="state.fromSettings" @key-generated="handleKeyGenerated"
+                            @response="addResponse" @back="handleClaimSuccessContinue" />
+                    </div>
+                    <div v-if="state.activeTab === 'restore'">
+                        <DidRestore :extension-password="state.extensionPassword" @key-generated="handleKeyGenerated"
+                            @response="addResponse" @back="handleClaimSuccessContinue" />
+                    </div>
+                    <div v-if="state.activeTab === 'responses'">
+                        <ResponseDisplay :responses="state.responses" @clear-responses="clearResponses" />
+                    </div>
+                    <div v-if="state.activeTab === 'claim-success'">
+                        <DidClaimSuccess :name="state.tempDidData?.name || ''" :did="state.tempDidData?.did || ''"
+                            @continue="handleClaimSuccessContinue" />
+                    </div>
+                    <div v-if="state.activeTab === 'settings' && state.storedDids.length > 0" class="space-y-4">
+                        <Settings v-model:selected-did="state.selectedDid" :extension-password="state.extensionPassword"
+                            @key-generated="handleKeyGenerated" @response="addResponse" @show-backup="showBackupModal"
+                            @show-confirm="showConfirmModal" @delete-did="promptDeleteKeyPair"
+                            @back="handleClaimSuccessContinue" />
+                    </div>
+                </div>
             </div>
-          </div>
-          <div v-if="state.activeTab === 'generate'">
-            <DidGenerate :extension-password="state.extensionPassword || 'temp'"
-                :from-settings="state.fromSettings" @key-generated="handleKeyGenerated"
-                @response="addResponse" @back="handleClaimSuccessContinue" />
-          </div>
-          <div v-if="state.activeTab === 'restore'">
-            <DidRestore :extension-password="state.extensionPassword" @key-generated="handleKeyGenerated"
-                @response="addResponse" @back="handleClaimSuccessContinue" />
-          </div>
-          <div v-if="state.activeTab === 'responses'">
-            <ResponseDisplay :responses="state.responses" @clear-responses="clearResponses" />
-          </div>
-          <div v-if="state.activeTab === 'claim-success'">
-            <DidClaimSuccess :name="state.tempDidData?.name || ''" :did="state.tempDidData?.did || ''"
-                @continue="handleClaimSuccessContinue" />
-          </div>
-          <div v-if="state.activeTab === 'settings' && state.storedDids.length > 0" class="space-y-4">
-            <Settings v-model:selected-did="state.selectedDid" :extension-password="state.extensionPassword"
-                @key-generated="handleKeyGenerated" @response="addResponse" @show-backup="showBackupModal"
-                @show-confirm="showConfirmModal" @delete-did="promptDeleteKeyPair"
-                @back="handleClaimSuccessContinue" />
-          </div>
-        </div>
-      </div>
 
-      <OnboardingModal v-if="state.showOnboarding" :dont-show-again="state.dontShowOnboarding"
-          :is-first-time="state.isFirstTime" @update:dont-show-again="updateDontShowOnboarding"
-          @close="closeOnboarding" @generate-did="handleGenerateDid" @restore-did="handleRestoreDid"
-          @response="addResponse" />
-      <SaveBackupKey v-if="state.showSaveBackupKey" :backupKey="state.backupKey" @download="downloadBackup"
-          @response="addResponse" @continue="handleBackupContinue" @close="handleBackupClose" />
-      <BackupModal v-if="state.showBackupModal" :backupKey="state.backupKey"
-          @download="downloadBackupFromSettings" @response="addResponse" @close="state.showBackupModal = false" />
-      <PromptModal v-if="state.showPromptModal" :title="state.promptModal.title"
-          :placeholder="state.promptModal.placeholder" @submit="handlePromptSubmit" @close="closePromptModal" />
-      <ConfirmModal v-if="state.showConfirmModal" :title="state.confirmModal.title"
-          :message="state.confirmModal.message" @confirm="handleConfirm" @close="closeConfirmModal"
-          :source="state.confirmModal.source" />
-    </template>
-  </div>
+            <OnboardingModal v-if="state.showOnboarding" :dont-show-again="state.dontShowOnboarding"
+                :is-first-time="state.isFirstTime" @update:dont-show-again="updateDontShowOnboarding"
+                @close="closeOnboarding" @generate-did="handleGenerateDid" @restore-did="handleRestoreDid"
+                @response="addResponse" />
+            <SaveBackupKey v-if="state.showSaveBackupKey" :backupKey="state.backupKey" @download="downloadBackup"
+                @response="addResponse" @continue="handleBackupContinue" @close="handleBackupClose" />
+            <BackupModal v-if="state.showBackupModal" :backupKey="state.backupKey"
+                @download="downloadBackupFromSettings" @response="addResponse" @close="state.showBackupModal = false" />
+            <PromptModal v-if="state.showPromptModal" :title="state.promptModal.title"
+                :placeholder="state.promptModal.placeholder" @submit="handlePromptSubmit" @close="closePromptModal" />
+            <ConfirmModal v-if="state.showConfirmModal" :title="state.confirmModal.title"
+                :message="state.confirmModal.message" @confirm="handleConfirm" @close="closeConfirmModal"
+                :source="state.confirmModal.source" />
+        </template>
+    </div>
 </template>
 
 <script>
@@ -102,540 +102,564 @@ import * as ed from "@stablelib/ed25519";
 import axios from "axios";
 
 export default {
-  components: {
-    DidSelector,
-    ResponseDisplay,
-    OnboardingModal,
-    BackupModal,
-    SaveBackupKey,
-    PromptModal,
-    ConfirmModal,
-    DidGenerate,
-    DidRestore,
-    Settings,
-    UnlockModal,
-    DidClaimSuccess,
-    DidProfile,
-    ForgotPassword,
-    PasswordSetup,
-    SettingsContainer,
-  },
-  data() {
-    return {
-      state: {
-        storedDids: [],
-        selectedDid: "",
-        selectedDidData: null,
-        responses: [],
-        showBackupModal: false,
-        showSaveBackupKey: false,
-        backupKey: "",
-        showOnboarding: false,
-        dontShowOnboarding: false,
-        activeTab: "profile",
-        showPromptModal: false,
-        promptModal: { title: "", placeholder: "", callback: null },
-        showConfirmModal: false,
-        confirmModal: { title: "", message: "", callback: null },
-        websiteOrigin: "",
-        showUnlockModal: false,
-        isFirstTime: false,
-        extensionPassword: "",
-        showDidSelector: false,
-        showForgotPasswordModal: false,
-        tempDidData: null,
-        showPasswordSetup: false,
-        showSettingsContainer: false,
-        fromSettings: false,
-      },
-    };
-  },
-  mounted() {
-    // Check if extension is already unlocked in session
-    chrome.runtime.sendMessage({ action: "is-unlocked" }, (response) => {
-      if (response?.unlocked) {
-        // Extension is unlocked, retrieve decrypted password
-        chrome.storage.session.get(["decryptedPassword"], (result) => {
-          if (result.decryptedPassword) {
-            this.state.extensionPassword = result.decryptedPassword;
-            this.state.showUnlockModal = false;
-            this.loadStoredDids(() => {
-              // Only show OnboardingModal if no DIDs and dontShowOnboarding is false
-              this.state.showOnboarding = !this.state.dontShowOnboarding && this.state.storedDids.length === 0;
-              this.loadSettings();
-              this.addResponse("Extension unlocked from session!");
-              chrome.runtime.sendMessage({ action: "get-current-origin" }, (response) => {
-                if (response?.origin) {
-                  this.state.websiteOrigin = response.origin;
-                  this.state.activeTab = "profile";
-                  localStorage.setItem("activeTab", "profile");
-                }
-              });
-            });
-          } else {
-            // Fallback to unlock modal if password is missing
-            this.checkFirstTime();
-          }
-        });
-      } else {
-        // Not unlocked, proceed with first-time check
-        this.checkFirstTime();
-      }
-    });
-
-    // Add message listeners
-    window.addEventListener("message", (event) => {
-      if (event.data?.action === "did-selected") {
-        const { did } = event.data;
-        this.handleDidSelected(did);
-      }
-    });
-
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      if (message.action === "show-nonce-confirm-modal") {
-        this.state.showConfirmModal = true;
-        this.state.confirmModal = {
-          title: "Confirm Nonce Signing",
-          message: `The website ${message.origin} is requesting to sign a nonce: ${message.nonce}. <span style="text-decoration:underline; color: whitesmoke"><br/>Do you want to proceed?</span> `,
-          source: "nonce",
-          callback: (confirmed) => {
-            chrome.runtime.sendMessage({ action: "nonce-confirm-response", confirmed });
-            this.state.showConfirmModal = false;
-            window.close();
-          },
+    components: {
+        DidSelector,
+        ResponseDisplay,
+        OnboardingModal,
+        BackupModal,
+        SaveBackupKey,
+        PromptModal,
+        ConfirmModal,
+        DidGenerate,
+        DidRestore,
+        Settings,
+        UnlockModal,
+        DidClaimSuccess,
+        DidProfile,
+        ForgotPassword,
+        PasswordSetup,
+        SettingsContainer,
+    },
+    data() {
+        return {
+            state: {
+                storedDids: [],
+                selectedDid: "",
+                selectedDidData: null,
+                responses: [],
+                showBackupModal: false,
+                showSaveBackupKey: false,
+                backupKey: "",
+                showOnboarding: false,
+                dontShowOnboarding: false,
+                activeTab: "profile",
+                showPromptModal: false,
+                promptModal: { title: "", placeholder: "", callback: null },
+                showConfirmModal: false,
+                confirmModal: { title: "", message: "", callback: null },
+                websiteOrigin: "",
+                showUnlockModal: false,
+                isFirstTime: false,
+                extensionPassword: "",
+                showDidSelector: false,
+                showForgotPasswordModal: false,
+                tempDidData: null,
+                showPasswordSetup: false,
+                showSettingsContainer: false,
+                fromSettings: false,
+            },
         };
-      }
-    });
-
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      if (message.action === "show-did-selector") {
-        console.log("Received show-did-selector message:", message);
-        this.state.showDidSelector = true;
-      }
-    });
-  },
-  methods: {
-    checkFirstTime() {
-      chrome.storage.local.get(["extensionPasswordHash"], (result) => {
-        if (!result.extensionPasswordHash) {
-          // First-time user
-          this.state.isFirstTime = true;
-          this.state.showOnboarding = true;
-          this.state.showUnlockModal = false;
-          this.state.showPasswordSetup = false;
-          this.state.showSaveBackupKey = false;
-          this.loadSettings();
-          this.loadStoredDids();
-        } else {
-          // Non-first-time user, load DIDs before deciding modal
-          this.state.isFirstTime = false;
-          this.loadStoredDids(() => {
-            this.state.showUnlockModal = true;
-            this.state.showOnboarding = false;
-            this.state.showPasswordSetup = false;
-            this.state.showSaveBackupKey = false;
-            this.loadSettings();
-          });
-        }
-      });
     },
-    loadStoredDids(callback) {
-      const stored = localStorage.getItem("didKeyPairs");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        this.state.storedDids = Object.keys(parsed).map(did => ({
-          did,
-          name: parsed[did].name,
-        }));
-      } else {
-        this.state.storedDids = [];
-      }
-      if (!this.state.storedDids.some(d => d.did === this.state.selectedDid)) {
-        this.state.selectedDid = this.state.storedDids.length > 0 ? this.state.storedDids[0].did : "";
-      }
-      if (callback) callback();
-    },
-    handleUnlock(password) {
-      // Store unlock status and password in session storage
-      chrome.storage.session.set(
-        {
-          isUnlocked: true,
-          decryptedPassword: password,
-        },
-        () => {
-          if (chrome.runtime.lastError) {
-            console.error("Error storing session data:", chrome.runtime.lastError.message);
-            this.addResponse("Error storing session data.");
-            return;
-          }
-          // Send password to background.js
-          chrome.runtime.sendMessage(
-            { action: "password-unlocked", decryptedPassword: password },
-            (response) => {
-              if (response?.status === "password-stored") {
-                this.state.extensionPassword = password;
-                this.state.showUnlockModal = false;
-                // Load DIDs before deciding to show OnboardingModal
-                this.loadStoredDids(() => {
-                  this.state.showOnboarding = !this.state.dontShowOnboarding && this.state.storedDids.length === 0;
-                  this.addResponse("Extension unlocked successfully!");
+    mounted() {
+        // Check if extension is already unlocked in session
+        chrome.runtime.sendMessage({ action: "is-unlocked" }, (response) => {
+            if (response?.unlocked) {
+                // Extension is unlocked, retrieve decrypted password
+                chrome.storage.session.get(["decryptedPassword"], (result) => {
+                    if (result.decryptedPassword) {
+                        this.state.extensionPassword = result.decryptedPassword;
+                        this.state.showUnlockModal = false;
+                        this.loadStoredDids(() => {
+                            // Only show OnboardingModal if no DIDs and dontShowOnboarding is false
+                            this.state.showOnboarding = !this.state.dontShowOnboarding && this.state.storedDids.length === 0;
+                            this.loadSettings(() => {
+                                this.addResponse("Extension unlocked from session!");
+                                chrome.runtime.sendMessage({ action: "get-current-origin" }, (response) => {
+                                    if (response?.origin) {
+                                        this.state.websiteOrigin = response.origin;
+                                        chrome.storage.local.get(["activeTab"], (result) => {
+                                            this.state.activeTab = result.activeTab || "profile";
+                                        });
+                                    }
+                                });
+                            });
+                        });
+                    } else {
+                        // Fallback to unlock modal if password is missing
+                        this.checkFirstTime();
+                    }
                 });
-              } else {
-                this.addResponse("Error storing password in session.");
-              }
+            } else {
+                // Not unlocked, proceed with first-time check
+                this.checkFirstTime();
             }
-          );
-        }
-      );
+        });
+
+        // Add message listeners
+        window.addEventListener("message", (event) => {
+            if (event.data?.action === "did-selected") {
+                const { did } = event.data;
+                this.handleDidSelected(did);
+            }
+        });
+
+        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+            if (message.action === "show-nonce-confirm-modal") {
+                this.state.showConfirmModal = true;
+                this.state.confirmModal = {
+                    title: "Confirm Nonce Signing",
+                    message: `The website ${message.origin} is requesting to sign a nonce: ${message.nonce}. <span style="text-decoration:underline; color: whitesmoke"><br/>Do you want to proceed?</span> `,
+                    source: "nonce",
+                    callback: (confirmed) => {
+                        chrome.runtime.sendMessage({ action: "nonce-confirm-response", confirmed });
+                        this.state.showConfirmModal = false;
+                        chrome.storage.local.set({ activeTab: "profile" });
+                        window.close();
+
+                    },
+                };
+            }
+        });
+
+        chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+            if (message.action === "show-did-selector") {
+                console.log("Received show-did-selector message:", message);
+                this.state.showDidSelector = true;
+            }
+        });
     },
-    handleLock() {
-      chrome.runtime.sendMessage({ action: "lock" }, (response) => {
-        if (response?.status === "locked") {
-          this.state.extensionPassword = "";
-          this.state.showUnlockModal = true;
-          this.state.showSettingsContainer = false;
-          this.addResponse("Extension locked successfully!");
-        } else {
-          this.addResponse("Error locking extension.");
-        }
-      });
-    },
-    handleSettings() {
-      this.state.showSettingsContainer = true;
-    },
-    handleGenerateDid() {
-      this.state.showOnboarding = false;
-      this.state.showSettingsContainer = false;
-      this.state.fromSettings = true;
-      this.state.activeTab = "generate";
-      this.state.showDidGenerate = true;
-      this.state.showDidRestore = false;
-      localStorage.setItem("activeTab", "generate");
-    },
-    showSettings() {
-      this.state.activeTab = "settings";
-      this.state.showOnboarding = false;
-      this.state.showSettingsContainer = false;
-      this.state.showDidGenerate = false;
-      this.state.showDidRestore = false;
-      localStorage.setItem("activeTab", "settings");
-    },
-    handleRestoreDid() {
-      this.state.showOnboarding = false;
-      this.state.showSettingsContainer = false;
-      this.state.activeTab = "restore";
-      this.state.showDidGenerate = false;
-      this.state.showDidRestore = true;
-      localStorage.setItem("activeTab", "restore");
-    },
-    handlePasswordSet(password) {
-      this.state.extensionPassword = password;
-      this.state.isFirstTime = false;
-      const passwordHash = CryptoJS.SHA256(password).toString();
-      const encryptedPassword = CryptoJS.AES.encrypt(password, password).toString();
-      chrome.storage.local.set(
-        {
-          extensionPasswordHash: passwordHash,
-          extensionPassword: encryptedPassword,
-        },
-        () => {
-          if (chrome.runtime.lastError) {
-            console.error("Error storing password:", chrome.runtime.lastError.message);
-            this.addResponse("Error setting extension password.");
-            return;
-          }
-          if (this.state.tempDidData) {
-            chrome.storage.local.get(["didKeyPairs"], (result) => {
-              if (chrome.runtime.lastError) {
-                console.error("Error retrieving didKeyPairs:", chrome.runtime.lastError.message);
-                this.addResponse("Error storing DID data.");
-                return;
-              }
-              const stored = JSON.parse(result.didKeyPairs || "{}");
-              const encryptedSecretKey = CryptoJS.AES.encrypt(
-                this.state.tempDidData.rawSecretKey,
-                password
-              ).toString();
-              const didData = {
-                name: this.state.tempDidData.name,
-                publicKey: this.state.tempDidData.publicKey,
-                secretKey: encryptedSecretKey,
-                createdAt: this.state.tempDidData.createdAt,
-              };
-              stored[this.state.tempDidData.did] = didData;
-              chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
-                if (chrome.runtime.lastError) {
-                  console.error("Error storing didKeyPairs:", chrome.runtime.lastError.message);
-                  this.addResponse("Error storing DID data.");
-                  return;
+    methods: {
+        checkFirstTime() {
+            chrome.storage.local.get(["extensionPasswordHash"], (result) => {
+                if (!result.extensionPasswordHash) {
+                    // First-time user
+                    this.state.isFirstTime = true;
+                    this.state.showOnboarding = true;
+                    this.state.showUnlockModal = false;
+                    this.state.showPasswordSetup = false;
+                    this.state.showSaveBackupKey = false;
+                    this.loadSettings();
+                    this.loadStoredDids();
+                } else {
+                    // Non-first-time user, load DIDs before deciding modal
+                    this.state.isFirstTime = false;
+                    this.loadStoredDids(() => {
+                        this.state.showUnlockModal = true;
+                        this.state.showOnboarding = false;
+                        this.state.showPasswordSetup = false;
+                        this.state.showSaveBackupKey = false;
+                        this.loadSettings();
+                    });
                 }
-                localStorage.setItem("didKeyPairs", JSON.stringify(stored));
-                this.loadStoredDids();
-                this.addResponse(`DID "${this.state.tempDidData.name}" stored successfully!`);
-                this.state.showPasswordSetup = false;
-                this.state.activeTab = "claim-success";
-                localStorage.setItem("activeTab", "claim-success");
-              });
             });
-          } else {
-            this.state.showPasswordSetup = false;
-            this.state.activeTab = "claim-success";
-            localStorage.setItem("activeTab", "claim-success");
-            this.addResponse("Extension password set successfully!");
-          }
-        }
-      );
-    },
-    handleClaimSuccessContinue() {
-      this.state.selectedDid = this.state.tempDidData?.did || '';
-      this.state.activeTab = "profile";
-      localStorage.setItem("activeTab", "profile");
-      this.state.tempDidData = null;
-    },
-    updateSelectedDid(did) {
-      this.state.selectedDid = did;
-      this.addResponse(`Selected DID: ${did}`);
-    },
-    handleDidSelected(did) {
-      if (!did) {
-        this.addResponse("DID is missing");
-        return;
-      }
-      this.state.selectedDid = did;
-      chrome.tabs.query({}, (tabs) => {
-        tabs.forEach((tab) => {
-          chrome.tabs.sendMessage(tab.id, { action: "did-selected", did });
-        });
-      });
-    },
-    loadSettings() {
-      const dontShow = localStorage.getItem("dontShowOnboarding");
-      this.state.dontShowOnboarding = dontShow ? JSON.parse(dontShow) : false;
-    },
-    addResponse(message) {
-      const response = {
-        message,
-        timestamp: new Date().toLocaleString(),
-        type: message.includes("Error") ? "error" : "success",
-      };
-      this.state.responses.unshift(response);
-      chrome.storage.local.set({ responses: JSON.stringify(this.state.responses) }, () => {
-        console.log("Responses saved:", this.state.responses);
-      });
-      toast[message.includes("Error") ? "error" : "success"](message);
-    },
-    showBackupModal(key) {
-      this.state.backupKey = key;
-      this.state.showBackupModal = true;
-    },
-    showSaveBackupKey(key) {
-      this.state.backupKey = key;
-      this.state.showSaveBackupKey = true;
-    },
-    handleBackupContinue() {
-      this.state.showSaveBackupKey = false;
-      if (this.state.isFirstTime) {
-        this.state.showPasswordSetup = true;
-      }
-    },
-    handleBackupClose() {
-      this.state.showSaveBackupKey = false;
-      if (this.state.isFirstTime) {
-        this.state.showPasswordSetup = true;
-      }
-    },
-    showConfirmModal(payload) {
-      this.state.showConfirmModal = true;
-      this.state.confirmModal = {
-        title: payload.title,
-        message: payload.message,
-        callback: (confirmed) => {
-          try {
-            if (typeof payload.callback === 'function') payload.callback(confirmed);
-          } finally {
-            this.state.showConfirmModal = false;
-          }
         },
-      };
-    },
-    downloadBackup() {
-      const blob = new Blob([this.state.backupKey], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `did-private-key-${this.state.tempDidData?.did || 'backup'}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-      this.state.showSaveBackupKey = false;
-      this.addResponse("Secret recovery key downloaded successfully!");
-      if (this.state.isFirstTime) {
-        this.state.showPasswordSetup = true;
-      }
-    },
-    downloadBackupFromSettings() {
-      const blob = new Blob([this.state.backupKey], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `did-private-key-${this.state.selectedDid}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-      this.state.showBackupModal = false;
-      this.addResponse("Private key downloaded successfully!");
-    },
-    promptDeleteKeyPair() {
-      console.log("Prompting delete for DID:", this.state.selectedDid);
-      if (!this.state.selectedDid) {
-        this.addResponse("Please select a DID first.");
-        return;
-      }
-      const stored = JSON.parse(localStorage.getItem("didKeyPairs") || "{}");
-      const keyPair = stored[this.state.selectedDid];
-      if (!keyPair) {
-        this.addResponse(`No key pair found for DID ${this.truncateDid(this.state.selectedDid)}`);
-        return;
-      }
-      this.state.showConfirmModal = true;
-      this.state.confirmModal = {
-        title: "Delete DID",
-        message: `Are you sure you want to delete DID "${keyPair.name || this.truncateDid(this.state.selectedDid)}"? <span class="text_small" style="color:red"><br/>This cannot be undone.</span>`,
-        source: "delete",
-        callback: (confirmed) => {
-          if (confirmed) this.deleteKeyPair();
-          this.state.showConfirmModal = false;
+        loadStoredDids(callback) {
+            chrome.storage.local.get(["didKeyPairs"], (result) => {
+                const stored = result.didKeyPairs ? JSON.parse(result.didKeyPairs) : {};
+                this.state.storedDids = Object.keys(stored).map(did => ({
+                    did,
+                    name: stored[did].name,
+                }));
+                if (!this.state.storedDids.some(d => d.did === this.state.selectedDid)) {
+                    this.state.selectedDid = this.state.storedDids.length > 0 ? this.state.storedDids[0].did : "";
+                }
+                if (callback) callback();
+            });
         },
-      };
-    },
-    deleteKeyPair() {
-      const stored = JSON.parse(localStorage.getItem("didKeyPairs") || "{}");
-      const keyPair = stored[this.state.selectedDid];
-      if (!keyPair) {
-        this.addResponse(`No key pair found for DID ${this.truncateDid(this.state.selectedDid)}`);
-        return;
-      }
-      delete stored[this.state.selectedDid];
-      chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
-        localStorage.setItem("didKeyPairs", JSON.stringify(stored));
-        this.loadStoredDids();
-        this.addResponse(`DID "${keyPair.name || this.truncateDid(this.state.selectedDid)}" deleted successfully.`);
-        this.state.selectedDid = this.state.storedDids.length > 0 ? this.state.storedDids[0].did : "";
-      });
-    },
-    truncateDid(did) {
-      return did.length > 30 ? `${did.slice(0, 12)}...${did.slice(-12)}` : did;
-    },
-    handleKeyGenerated(didData) {
-      this.loadStoredDids();
-      this.addResponse(`DID "${didData.name}" generated successfully!`);
-      if (this.state.isFirstTime) {
-        this.state.tempDidData = didData;
-        this.showSaveBackupKey(didData.rawSecretKey);
-      } else {
-        chrome.storage.local.get(["didKeyPairs"], (result) => {
-          const stored = JSON.parse(result.didKeyPairs || "{}");
-          const encryptedSecretKey = CryptoJS.AES.encrypt(didData.rawSecretKey, this.state.extensionPassword).toString();
-          stored[didData.did] = {
-            name: didData.name,
-            publicKey: didData.publicKey,
-            secretKey: encryptedSecretKey,
-            createdAt: didData.createdAt,
-          };
-          chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
-            localStorage.setItem("didKeyPairs", JSON.stringify(stored));
-            this.loadStoredDids();
+        loadSettings(callback) {
+            chrome.storage.local.get(["dontShowOnboarding"], (result) => {
+                this.state.dontShowOnboarding = result.dontShowOnboarding ? JSON.parse(result.dontShowOnboarding) : false;
+                if (callback) callback();
+            });
+        },
+        handleUnlock(password) {
+            // Store unlock status and password in session storage
+            chrome.storage.session.set(
+                {
+                    isUnlocked: true,
+                    decryptedPassword: password,
+                },
+                () => {
+                    if (chrome.runtime.lastError) {
+                        console.error("Error storing session data:", chrome.runtime.lastError.message);
+                        this.addResponse("Error storing session data.");
+                        return;
+                    }
+                    // Send password to background.js
+                    chrome.runtime.sendMessage(
+                        { action: "password-unlocked", decryptedPassword: password },
+                        (response) => {
+                            if (response?.status === "password-stored") {
+                                this.state.extensionPassword = password;
+                                this.state.showUnlockModal = false;
+                                // Load DIDs before deciding to show OnboardingModal
+                                this.loadStoredDids(() => {
+                                    this.state.showOnboarding = !this.state.dontShowOnboarding && this.state.storedDids.length === 0;
+                                    this.addResponse("Extension unlocked successfully!");
+                                });
+                            } else {
+                                this.addResponse("Error storing password in session.");
+                            }
+                        }
+                    );
+                }
+            );
+        },
+        handleLock() {
+            chrome.runtime.sendMessage({ action: "lock" }, (response) => {
+                if (response?.status === "locked") {
+                    this.state.extensionPassword = "";
+                    this.state.showUnlockModal = true;
+                    this.state.showSettingsContainer = false;
+                    this.addResponse("Extension locked successfully!");
+                } else {
+                    this.addResponse("Error locking extension.");
+                }
+            });
+        },
+        handleSettings() {
+            this.state.showSettingsContainer = true;
+        },
+        handleGenerateDid() {
+            this.state.showOnboarding = false;
+            this.state.showSettingsContainer = false;
+            this.state.fromSettings = true;
+            this.state.activeTab = "generate";
+            this.state.showDidGenerate = true;
+            this.state.showDidRestore = false;
+            chrome.storage.local.set({ activeTab: "generate" });
+        },
+        showSettings() {
+            this.state.activeTab = "settings";
+            this.state.showOnboarding = false;
+            this.state.showSettingsContainer = false;
+            this.state.showDidGenerate = false;
+            this.state.showDidRestore = false;
+            chrome.storage.local.set({ activeTab: "settings" });
+        },
+        handleRestoreDid() {
+            this.state.showOnboarding = false;
+            this.state.showSettingsContainer = false;
+            this.state.activeTab = "restore";
+            this.state.showDidGenerate = false;
+            this.state.showDidRestore = true;
+            chrome.storage.local.set({ activeTab: "restore" });
+        },
+        handlePasswordSet(password) {
+            this.state.extensionPassword = password;
+            this.state.isFirstTime = false;
+            const passwordHash = CryptoJS.SHA256(password).toString();
+            const encryptedPassword = CryptoJS.AES.encrypt(password, password).toString();
+            chrome.storage.local.set(
+                {
+                    extensionPasswordHash: passwordHash,
+                    extensionPassword: encryptedPassword,
+                },
+                () => {
+                    if (chrome.runtime.lastError) {
+                        console.error("Error storing password:", chrome.runtime.lastError.message);
+                        this.addResponse("Error setting extension password.");
+                        return;
+                    }
+                    if (this.state.tempDidData) {
+                        chrome.storage.local.get(["didKeyPairs"], (result) => {
+                            if (chrome.runtime.lastError) {
+                                console.error("Error retrieving didKeyPairs:", chrome.runtime.lastError.message);
+                                this.addResponse("Error storing DID data.");
+                                return;
+                            }
+                            const stored = JSON.parse(result.didKeyPairs || "{}");
+                            const encryptedSecretKey = CryptoJS.AES.encrypt(
+                                this.state.tempDidData.rawSecretKey,
+                                password
+                            ).toString();
+                            const didData = {
+                                name: this.state.tempDidData.name,
+                                publicKey: this.state.tempDidData.publicKey,
+                                secretKey: encryptedSecretKey,
+                                createdAt: this.state.tempDidData.createdAt,
+                            };
+                            stored[this.state.tempDidData.did] = didData;
+                            chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
+                                if (chrome.runtime.lastError) {
+                                    console.error("Error storing didKeyPairs:", chrome.runtime.lastError.message);
+                                    this.addResponse("Error storing DID data.");
+                                    return;
+                                }
+                                this.loadStoredDids();
+                                this.addResponse(`DID "${this.state.tempDidData.name}" stored successfully!`);
+                                this.state.showPasswordSetup = false;
+                                this.state.activeTab = "claim-success";
+                                chrome.storage.local.set({ activeTab: "claim-success" });
+                            });
+                        });
+                    } else {
+                        this.state.showPasswordSetup = false;
+                        this.state.activeTab = "claim-success";
+                        chrome.storage.local.set({ activeTab: "claim-success" });
+                        this.addResponse("Extension password set successfully!");
+                    }
+                }
+            );
+        },
+        handleClaimSuccessContinue() {
+            this.state.selectedDid = this.state.tempDidData?.did || '';
             this.state.activeTab = "profile";
-            this.state.fromSettings = false;
-            localStorage.setItem("activeTab", "profile");
-          });
-        });
-      }
+            chrome.storage.local.set({ activeTab: "profile" });
+            this.state.tempDidData = null;
+        },
+        updateSelectedDid(did) {
+            this.state.selectedDid = did;
+            this.addResponse(`Selected DID: ${did}`);
+        },
+        handleDidSelected(did) {
+            if (!did) {
+                this.addResponse("DID is missing");
+                return;
+            }
+            this.state.selectedDid = did;
+            chrome.tabs.query({}, (tabs) => {
+                tabs.forEach((tab) => {
+                    chrome.tabs.sendMessage(tab.id, { action: "did-selected", did });
+                });
+            });
+        },
+        loadSettings(callback) {
+            chrome.storage.local.get(["dontShowOnboarding"], (result) => {
+                this.state.dontShowOnboarding = result.dontShowOnboarding ? JSON.parse(result.dontShowOnboarding) : false;
+                if (callback) callback();
+            });
+        },
+        addResponse(message) {
+            const response = {
+                message,
+                timestamp: new Date().toLocaleString(),
+                type: message.includes("Error") ? "error" : "success",
+            };
+            this.state.responses.unshift(response);
+            chrome.storage.local.set({ responses: JSON.stringify(this.state.responses) }, () => {
+                console.log("Responses saved:", this.state.responses);
+            });
+            toast[message.includes("Error") ? "error" : "success"](message);
+        },
+        showBackupModal(key) {
+            this.state.backupKey = key;
+            this.state.showBackupModal = true;
+        },
+        showSaveBackupKey(key) {
+            this.state.backupKey = key;
+            this.state.showSaveBackupKey = true;
+        },
+        handleBackupContinue() {
+            this.state.showSaveBackupKey = false;
+            if (this.state.isFirstTime) {
+                this.state.showPasswordSetup = true;
+            }
+        },
+        handleBackupClose() {
+            this.state.showSaveBackupKey = false;
+            if (this.state.isFirstTime) {
+                this.state.showPasswordSetup = true;
+            }
+        },
+        showConfirmModal(payload) {
+            this.state.showConfirmModal = true;
+            this.state.confirmModal = {
+                title: payload.title,
+                message: payload.message,
+                callback: (confirmed) => {
+                    try {
+                        if (typeof payload.callback === 'function') payload.callback(confirmed);
+                    } finally {
+                        this.state.showConfirmModal = false;
+                    }
+                },
+            };
+        },
+        downloadBackup() {
+            const blob = new Blob([this.state.backupKey], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `did-private-key-${this.state.tempDidData?.did || 'backup'}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            this.state.showSaveBackupKey = false;
+            this.addResponse("Secret recovery key downloaded successfully!");
+            if (this.state.isFirstTime) {
+                this.state.showPasswordSetup = true;
+            }
+        },
+        downloadBackupFromSettings() {
+            const blob = new Blob([this.state.backupKey], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `did-private-key-${this.state.selectedDid}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            this.state.showBackupModal = false;
+            this.addResponse("Private key downloaded successfully!");
+        },
+        promptDeleteKeyPair() {
+            console.log("Prompting delete for DID:", this.state.selectedDid);
+            if (!this.state.selectedDid) {
+                this.addResponse("Please select a DID first.");
+                return;
+            }
+            chrome.storage.local.get(["didKeyPairs"], (result) => {
+                const stored = JSON.parse(result.didKeyPairs || "{}");
+                const keyPair = stored[this.state.selectedDid];
+                if (!keyPair) {
+                    this.addResponse(`No key pair found for DID ${this.truncateDid(this.state.selectedDid)}`);
+                    return;
+                }
+                this.state.showConfirmModal = true;
+                this.state.confirmModal = {
+                    title: "Delete DID",
+                    message: `Are you sure you want to delete DID "${keyPair.name || this.truncateDid(this.state.selectedDid)}"? <span class="text_small" style="color:red"><br/>This cannot be undone.</span>`,
+                    source: "delete",
+                    callback: (confirmed) => {
+                        if (confirmed) this.deleteKeyPair();
+                        this.state.showConfirmModal = false;
+                    },
+                };
+            });
+        },
+        deleteKeyPair() {
+            chrome.storage.local.get(["didKeyPairs"], (result) => {
+                const stored = JSON.parse(result.didKeyPairs || "{}");
+                const keyPair = stored[this.state.selectedDid];
+                if (!keyPair) {
+                    this.addResponse(`No key pair found for DID ${this.truncateDid(this.state.selectedDid)}`);
+                    return;
+                }
+                delete stored[this.state.selectedDid];
+                chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error("Error storing didKeyPairs:", chrome.runtime.lastError.message);
+                        this.addResponse("Error deleting DID.");
+                        return;
+                    }
+                    this.loadStoredDids();
+                    this.addResponse(`DID "${keyPair.name || this.truncateDid(this.state.selectedDid)}" deleted successfully.`);
+                    this.state.selectedDid = this.state.storedDids.length > 0 ? this.state.storedDids[0].did : "";
+                });
+            });
+        },
+        truncateDid(did) {
+            return did.length > 30 ? `${did.slice(0, 12)}...${did.slice(-12)}` : did;
+        },
+        handleKeyGenerated(didData) {
+            this.loadStoredDids();
+            this.addResponse(`DID "${didData.name}" generated successfully!`);
+            if (this.state.isFirstTime) {
+                this.state.tempDidData = didData;
+                this.showSaveBackupKey(didData.rawSecretKey);
+            } else {
+                chrome.storage.local.get(["didKeyPairs"], (result) => {
+                    const stored = JSON.parse(result.didKeyPairs || "{}");
+                    const encryptedSecretKey = CryptoJS.AES.encrypt(didData.rawSecretKey, this.state.extensionPassword).toString();
+                    stored[didData.did] = {
+                        name: didData.name,
+                        publicKey: didData.publicKey,
+                        secretKey: encryptedSecretKey,
+                        createdAt: didData.createdAt,
+                    };
+                    chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
+                        if (chrome.runtime.lastError) {
+                            console.error("Error storing didKeyPairs:", chrome.runtime.lastError.message);
+                            this.addResponse("Error storing DID data.");
+                            return;
+                        }
+                        this.loadStoredDids();
+                        this.state.activeTab = "profile";
+                        this.state.fromSettings = false;
+                        chrome.storage.local.set({ activeTab: "profile" });
+                    });
+                });
+            }
+        },
+        handlePromptSubmit(value) {
+            if (this.state.promptModal.callback) this.state.promptModal.callback(value);
+            this.state.showPromptModal = false;
+        },
+        closePromptModal() {
+            this.state.showPromptModal = false;
+        },
+        closeConfirmModal() {
+            const cb = this.state.confirmModal?.callback;
+            if (typeof cb === 'function') cb(false);
+            this.state.showConfirmModal = false;
+        },
+        handleConfirm() {
+            const cb = this.state.confirmModal?.callback;
+            if (typeof cb === 'function') cb(true);
+        },
+        updateDontShowOnboarding(value) {
+            this.state.dontShowOnboarding = value;
+            chrome.storage.local.set({ dontShowOnboarding: JSON.stringify(value) });
+        },
+        closeOnboarding() {
+            this.state.showOnboarding = false;
+            this.updateDontShowOnboarding(this.state.dontShowOnboarding);
+            this.state.activeTab = "profile";
+            chrome.storage.local.set({ activeTab: "profile" });
+            this.addResponse("Welcome! You are now in the DID Profile tab.");
+        },
+        handleForgotPasswordModal() {
+            this.state.showUnlockModal = false;
+            this.state.showForgotPasswordModal = true;
+        },
+        handleWalletReset() {
+            chrome.storage.local.clear(() => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error clearing storage:", chrome.runtime.lastError.message);
+                    this.addResponse("Error resetting wallet.");
+                    return;
+                }
+                this.state.storedDids = [];
+                this.state.selectedDid = "";
+                this.state.responses = [];
+                this.state.showForgotPasswordModal = false;
+                this.state.isFirstTime = true;
+                this.state.showOnboarding = true;
+                this.state.extensionPassword = "";
+                this.addResponse("Wallet reset successfully!");
+            });
+        },
+        clearResponses() {
+            this.state.responses = [];
+            chrome.storage.local.set({ responses: JSON.stringify(this.state.responses) }, () => {
+                console.log("Responses cleared");
+            });
+        },
     },
-    handlePromptSubmit(value) {
-      if (this.state.promptModal.callback) this.state.promptModal.callback(value);
-      this.state.showPromptModal = false;
-    },
-    closePromptModal() {
-      this.state.showPromptModal = false;
-    },
-    closeConfirmModal() {
-      const cb = this.state.confirmModal?.callback;
-      if (typeof cb === 'function') cb(false);
-      this.state.showConfirmModal = false;
-    },
-    handleConfirm() {
-      const cb = this.state.confirmModal?.callback;
-      if (typeof cb === 'function') cb(true);
-    },
-    updateDontShowOnboarding(value) {
-      this.state.dontShowOnboarding = value;
-      localStorage.setItem("dontShowOnboarding", JSON.stringify(value));
-    },
-    closeOnboarding() {
-      this.state.showOnboarding = false;
-      this.updateDontShowOnboarding(this.state.dontShowOnboarding);
-      this.state.activeTab = "profile";
-      localStorage.setItem("activeTab", "profile");
-      this.addResponse("Welcome! You are now in the DID Profile tab.");
-    },
-    handleForgotPasswordModal() {
-      this.state.showUnlockModal = false;
-      this.state.showForgotPasswordModal = true;
-    },
-    handleWalletReset() {
-      chrome.storage.local.clear(() => {
-        localStorage.clear();
-        this.state.storedDids = [];
-        this.state.selectedDid = "";
-        this.state.responses = [];
-        this.state.showForgotPasswordModal = false;
-        this.state.isFirstTime = true;
-        this.state.showOnboarding = true;
-        this.state.extensionPassword = "";
-        this.addResponse("Wallet reset successfully!");
-      });
-    },
-    clearResponses() {
-      this.state.responses = [];
-      chrome.storage.local.set({ responses: JSON.stringify(this.state.responses) }, () => {
-        console.log("Responses cleared");
-      });
-    },
-  },
 };
 </script>
 
 <style scoped>
 * {
-  font-family: "Rethink Sans", sans-serif !important;
+    font-family: "Rethink Sans", sans-serif !important;
 }
 
 .main_container {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  height: calc(100% - 64px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: calc(100% - 64px);
 }
 
 .tab-content {
-  flex-grow: 1;
-  overflow-y: auto;
-  padding-bottom: 10px;
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-bottom: 10px;
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
+    width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1a1b24;
+    background: #1a1b24;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4b4e6d;
-  border-radius: 3px;
+    background: #4b4e6d;
+    border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #d7df23;
+    background: #d7df23;
 }
 </style>

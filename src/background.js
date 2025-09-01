@@ -17,7 +17,7 @@ chrome.runtime.onMessageExternal.addListener(
             action: "show-did-selector",
             origin: sender.origin,
           });
-        }, 200); // wait for the popup to mount
+        }, 500); // wait for the popup to mount
       });
 
       return true;
@@ -146,14 +146,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           nonceRequest.sendResponse({ error: "User canceled nonce signing" });
         }
 
-        chrome.storage.local.remove("pendingNonceRequest", () => {
-          if (chrome.runtime.lastError) {
-            console.error(
-              "Error clearing pending nonce request:",
-              chrome.runtime.lastError.message
-            );
-          }
-        });
+        chrome.storage.local.remove(["pendingNonceRequest"]);
       }
     );
     return true;
