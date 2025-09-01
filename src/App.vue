@@ -9,7 +9,7 @@
             @password-set="handlePasswordSet" />
         <SettingsContainer v-if="state.showSettingsContainer" @close="state.showSettingsContainer = false"
             @generate-did="handleGenerateDid" @restore-did="handleRestoreDid" @settings-did="showSettings"
-            @delete-did="promptDeleteKeyPair" @response="addResponse" />
+            @delete-did="promptDeleteKeyPair" @response="addResponse" @lock="handleLock" />
         <template v-else>
             <header
                 class="flex items-center justify-between gap-3 mb-4 w-full border-b border-gray-700 pb-2 sticky top-0">
@@ -154,11 +154,29 @@ export default {
         this.checkFirstTime();
         this.loadSettings();
         this.loadStoredDids();
-        chrome.runtime.sendMessage({ action: "get-current-origin" }, (response) => {
-            if (response?.origin) {
-                this.state.websiteOrigin = response.origin;
-                this.state.activeTab = "profile";
-                localStorage.setItem("activeTab", "profile");
+        chrome.runtime.sendMessage({ action: "is-unlocked" }, (response) => {
+            if (response?.unlocked) {
+                chrome.storage.session.get(["decryptedPassword"], (result) => {
+                    if (result.decryptedPassword) {
+                        this.state.extensionPassword = result.decryptedPassword;
+                        this.state.showUnlockModal = false;
+                        this.state.showOnboarding = !this.state.dontShowOnboarding && this.state.storedDids.length === 0;
+                        this.addResponse("Extension unlocked from session!");
+                        this.loadStoredDids();
+                        this.loadSettings();
+                        chrome.runtime.sendMessage({ action: "get-current-origin" }, (response) => {
+                            if (response?.origin) {
+                                this.state.websiteOrigin = response.origin;
+                                this.state.activeTab = "profile";
+                                localStorage.setItem("activeTab", "profile");
+                            }
+                        });
+                    } else {
+                        this.checkFirstTime();
+                    }
+                });
+            } else {
+                this.checkFirstTime();
             }
         });
         window.addEventListener("message", (event) => {
@@ -205,13 +223,50 @@ export default {
                     this.state.showPasswordSetup = false;
                     this.state.showSaveBackupKey = false;
                 }
+                this.loadSettings();
+                this.loadStoredDids();
+            });
+        },
+        handleLock() {
+            chrome.runtime.sendMessage({ action: "lock" }, (response) => {
+                if (response?.status === "locked") {
+                    this.state.extensionPassword = "";
+                    this.state.showUnlockModal = true;
+                    this.state.showSettingsContainer = false;
+                    this.addResponse("Extension locked successfully!");
+                } else {
+                    this.addResponse("Error locking extension.");
+                }
             });
         },
         handleUnlock(password) {
-            this.state.extensionPassword = password;
-            this.state.showUnlockModal = false;
-            this.state.showOnboarding = !this.state.dontShowOnboarding && this.state.storedDids.length === 0;
-            this.addResponse("Extension unlocked successfully!");
+            chrome.storage.session.set(
+                {
+                    isUnlocked: true,
+                    decryptedPassword: password,
+                },
+                () => {
+                    if (chrome.runtime.lastError) {
+                        console.error("Error storing session data:", chrome.runtime.lastError.message);
+                        this.addResponse("Error storing session data.");
+                        return;
+                    }
+                    // Send password to background.js
+                    chrome.runtime.sendMessage(
+                        { action: "password-unlocked", decryptedPassword: password },
+                        (response) => {
+                            if (response?.status === "password-stored") {
+                                this.state.extensionPassword = password;
+                                this.state.showUnlockModal = false;
+                                this.state.showOnboarding = !this.state.dontShowOnboarding && this.state.storedDids.length === 0;
+                                this.addResponse("Extension unlocked successfully!");
+                            } else {
+                                this.addResponse("Error storing password in session.");
+                            }
+                        }
+                    );
+                }
+            )
         },
         handleSettings() {
             this.state.showSettingsContainer = true;
@@ -282,13 +337,11 @@ export default {
                                     this.addResponse("Error storing DID data.");
                                     return;
                                 }
-                                localStorage.setItem("didKeyPairs", JSON.stringify(stored));
                                 this.loadStoredDids();
                                 this.addResponse(`DID "${this.state.tempDidData.name}" stored successfully!`);
                                 this.state.showPasswordSetup = false;
                                 this.state.activeTab = "claim-success";
                                 localStorage.setItem("activeTab", "claim-success");
-                                // this.addResponse("Extension password set successfully!");
                             });
                         });
                     } else {
@@ -323,19 +376,21 @@ export default {
             });
         },
         loadStoredDids() {
-            const stored = localStorage.getItem("didKeyPairs");
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                this.state.storedDids = Object.keys(parsed).map(did => ({
+            chrome.storage.local.get(["didKeyPairs"], (result) => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error retrieving didKeyPairs:", chrome.runtime.lastError.message);
+                    this.addResponse("Error loading stored DIDs.");
+                    return;
+                }
+                const stored = JSON.parse(result.didKeyPairs || "{}");
+                this.state.storedDids = Object.keys(stored).map(did => ({
                     did,
-                    name: parsed[did].name,
+                    name: stored[did].name,
                 }));
-            } else {
-                this.state.storedDids = [];
-            }
-            if (!this.state.storedDids.some(d => d.did === this.state.selectedDid)) {
-                this.state.selectedDid = this.state.storedDids.length > 0 ? this.state.storedDids[0].did : "";
-            }
+                if (!this.state.storedDids.some(d => d.did === this.state.selectedDid)) {
+                    this.state.selectedDid = this.state.storedDids.length > 0 ? this.state.storedDids[0].did : "";
+                }
+            });
         },
         loadSettings() {
             const dontShow = localStorage.getItem("dontShowOnboarding");
@@ -413,41 +468,58 @@ export default {
             this.addResponse("Private key downloaded successfully!");
         },
         promptDeleteKeyPair() {
-            console.log("Prompting delete for DID:", this.state.selectedDid);
             if (!this.state.selectedDid) {
                 this.addResponse("Please select a DID first.");
                 return;
             }
-            const stored = JSON.parse(localStorage.getItem("didKeyPairs") || "{}");
-            const keyPair = stored[this.state.selectedDid];
-            if (!keyPair) {
-                this.addResponse(`No key pair found for DID ${this.truncateDid(this.state.selectedDid)}`);
-                return;
-            }
-            this.state.showConfirmModal = true;
-            this.state.confirmModal = {
-                title: "Delete DID",
-                message: `Are you sure you want to delete DID "${keyPair.name || this.truncateDid(this.state.selectedDid)}"? <span class="text_small" style="color:red"><br/>This cannot be undone.</span>`,
-                source: "delete",
-                callback: (confirmed) => {
-                    if (confirmed) this.deleteKeyPair();
-                    this.state.showConfirmModal = false;
-                },
-            };
+            chrome.storage.local.get(["didKeyPairs"], (result) => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error retrieving didKeyPairs:", chrome.runtime.lastError.message);
+                    this.addResponse("Error accessing DID data.");
+                    return;
+                }
+                const stored = JSON.parse(result.didKeyPairs || "{}");
+                const keyPair = stored[this.state.selectedDid];
+                if (!keyPair) {
+                    this.addResponse(`No key pair found for DID ${this.truncateDid(this.state.selectedDid)}`);
+                    return;
+                }
+                this.state.showConfirmModal = true;
+                this.state.confirmModal = {
+                    title: "Delete DID",
+                    message: `Are you sure you want to delete DID "${keyPair.name || this.truncateDid(this.state.selectedDid)}"? <span class="text_small" style="color:red"><br/>This cannot be undone.</span>`,
+                    source: "delete",
+                    callback: (confirmed) => {
+                        if (confirmed) this.deleteKeyPair();
+                        this.state.showConfirmModal = false;
+                    },
+                };
+            });
         },
         deleteKeyPair() {
-            const stored = JSON.parse(localStorage.getItem("didKeyPairs") || "{}");
-            const keyPair = stored[this.state.selectedDid];
-            if (!keyPair) {
-                this.addResponse(`No key pair found for DID ${this.truncateDid(this.state.selectedDid)}`);
-                return;
-            }
-            delete stored[this.state.selectedDid];
-            chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
-                localStorage.setItem("didKeyPairs", JSON.stringify(stored));
-                this.loadStoredDids();
-                this.addResponse(`DID "${keyPair.name || this.truncateDid(this.state.selectedDid)}" deleted successfully.`);
-                this.state.selectedDid = this.state.storedDids.length > 0 ? this.state.storedDids[0].did : "";
+            chrome.storage.local.get(["didKeyPairs"], (result) => {
+                if (chrome.runtime.lastError) {
+                    console.error("Error retrieving didKeyPairs:", chrome.runtime.lastError.message);
+                    this.addResponse("Error deleting DID.");
+                    return;
+                }
+                const stored = JSON.parse(result.didKeyPairs || "{}");
+                const keyPair = stored[this.state.selectedDid];
+                if (!keyPair) {
+                    this.addResponse(`No key pair found for DID ${this.truncateDid(this.state.selectedDid)}`);
+                    return;
+                }
+                delete stored[this.state.selectedDid];
+                chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error("Error storing didKeyPairs:", chrome.runtime.lastError.message);
+                        this.addResponse("Error deleting DID.");
+                        return;
+                    }
+                    this.loadStoredDids();
+                    this.addResponse(`DID "${keyPair.name || this.truncateDid(this.state.selectedDid)}" deleted successfully.`);
+                    this.state.selectedDid = this.state.storedDids.length > 0 ? this.state.storedDids[0].did : "";
+                });
             });
         },
         truncateDid(did) {
@@ -461,6 +533,11 @@ export default {
                 this.showSaveBackupKey(didData.rawSecretKey);
             } else {
                 chrome.storage.local.get(["didKeyPairs"], (result) => {
+                    if (chrome.runtime.lastError) {
+                        console.error("Error retrieving didKeyPairs:", chrome.runtime.lastError.message);
+                        this.addResponse("Error storing DID data.");
+                        return;
+                    }
                     const stored = JSON.parse(result.didKeyPairs || "{}");
                     const encryptedSecretKey = CryptoJS.AES.encrypt(didData.rawSecretKey, this.state.extensionPassword).toString();
                     stored[didData.did] = {
@@ -470,7 +547,11 @@ export default {
                         createdAt: didData.createdAt,
                     };
                     chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
-                        localStorage.setItem("didKeyPairs", JSON.stringify(stored));
+                        if (chrome.runtime.lastError) {
+                            console.error("Error storing didKeyPairs:", chrome.runtime.lastError.message);
+                            this.addResponse("Error storing DID data.");
+                            return;
+                        }
                         this.loadStoredDids();
                         this.state.activeTab = "profile";
                         this.state.fromSettings = false;

@@ -22,17 +22,9 @@
           {{ entry.name ? `${entry.name} - ${truncateDid(entry.did)}` : truncateDid(entry.did) }}
         </option>
       </select>
-
-      <!-- <button
-        v-if="localSelectedDid"
-        class="w-full bg-[#d7df23] text-black px-6 py-2 rounded-lg font-semibold text-sm hover:bg-[#d7df23]/90 transition"
-        @click="confirmSelection"
-      >
-        Confirm
-      </button> -->
     </div>
 
-    <p v-if="storedDids.length === 0" class="text-gray-500 text-sm text-center mt-4">
+    <p v-if="storedDids.length === 0" class="text-gray-500 text-sm text-center mt facture-4">
       No IDs found.
     </p>
     <p v-if="errorMessage" class="text-red-500 text-sm mt-2">{{ errorMessage }}</p>
@@ -52,31 +44,44 @@ export default {
     return {
       localSelectedDid: '',
       errorMessage: '',
+      storedDids: [],
     };
   },
-  computed: {
-    storedDids() {
-      return this.dids
-        .map((didObj) => {
-          const stored = JSON.parse(localStorage.getItem('didKeyPairs') || '{}');
-          return {
-            did: didObj.did,
-            name: stored[didObj.did]?.name || '',
-            createdAt: stored[didObj.did]?.createdAt || new Date().toISOString(),
-          };
-        })
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    },
+  mounted() {
+    this.loadStoredDids();
   },
-  watch:{
+  watch: {
     localSelectedDid(newVal) {
       this.errorMessage = '';
       if (newVal) {
         this.confirmSelection();
       }
     },
+    dids: {
+      handler() {
+        this.loadStoredDids();
+      },
+      deep: true,
+    },
   },
   methods: {
+    loadStoredDids() {
+      chrome.storage.local.get(['didKeyPairs'], (result) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error retrieving didKeyPairs:', chrome.runtime.lastError.message);
+          this.errorMessage = 'Error loading DID profiles.';
+          return;
+        }
+        const stored = JSON.parse(result.didKeyPairs || '{}');
+        this.storedDids = this.dids
+          .map((didObj) => ({
+            did: didObj.did,
+            name: stored[didObj.did]?.name || '',
+            createdAt: stored[didObj.did]?.createdAt || new Date().toISOString(),
+          }))
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      });
+    },
     confirmSelection() {
       if (!this.localSelectedDid) {
         this.errorMessage = 'Please select a DID.';

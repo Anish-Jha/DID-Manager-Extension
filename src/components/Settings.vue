@@ -10,7 +10,7 @@
         <div>
           <label for="did-select" class="text-white text-base font-medium mb-2 block">Select an Identity</label>
           <select id="did-select" :value="selectedDid" @change="$emit('update:selected-did', $event.target.value)"
-            class="w-full bg-transparent text-white bg-gray-800 text-base border border-gray-700 rounded px-3 py-2 mb-4 focus:ring-2 focus:ring-[#D7DF23] outline-none">
+            class="w-full bg-transparent text-white bg-gray-800 text-base border ver border-gray-700 rounded px-3 py-2 mb-4 focus:ring-2 focus:ring-[#D7DF23] outline-none">
             <option class="text-white bg-[#15161E]" value="" disabled>Select Identity</option>
             <option class="text-white bg-[#15161E]" v-for="did in storedDids" :key="did.did" :value="did.did">
               {{ did.name || truncateDid(did.did) }}
@@ -67,23 +67,8 @@ export default {
       storedDids: [],
     };
   },
-  computed: {
-    storedDids() {
-      const stored = JSON.parse(localStorage.getItem('didKeyPairs') || '{}');
-      return Object.keys(stored).map((did) => {
-        try {
-          const decryptedBytes = CryptoJS.AES.decrypt(stored[did], this.extensionPassword);
-          const decryptedData = JSON.parse(decryptedBytes.toString(CryptoJS.enc.Utf8));
-          return {
-            did,
-            name: decryptedData.name,
-          };
-        } catch (error) {
-          console.error(`Failed to decrypt DID ${did}:`, error.message);
-          return { did, name: this.truncateDid(did) };
-        }
-      });
-    },
+  mounted() {
+    this.loadStoredDids();
   },
   watch: {
     selectedDid(newDid) {
@@ -93,51 +78,59 @@ export default {
       }
     },
   },
-  mounted() {
-    this.loadStoredDids();
-  },
   methods: {
     loadStoredDids() {
-      const stored = JSON.parse(localStorage.getItem('didKeyPairs') || '{}');
-      this.storedDids = Object.keys(stored).map(did => ({
-        did,
-        name: stored[did].name,
-      }));
-      if (!this.storedDids.some(d => d.did === this.selectedDid)) {
-        const newSelectedDid = this.storedDids.length > 0 ? this.storedDids[0].did : '';
-        console.log('Setting initial selectedDid:', newSelectedDid);
-        this.$emit('update:selectedDid', newSelectedDid);
-      }
+      chrome.storage.local.get(['didKeyPairs'], (result) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error retrieving didKeyPairs:', chrome.runtime.lastError.message);
+          this.$emit('response', 'Error loading DID profiles.');
+          return;
+        }
+        const stored = JSON.parse(result.didKeyPairs || '{}');
+        this.storedDids = Object.keys(stored).map(did => ({
+          did,
+          name: stored[did].name,
+        }));
+        if (!this.storedDids.some(d => d.did === this.selectedDid)) {
+          const newSelectedDid = this.storedDids.length > 0 ? this.storedDids[0].did : '';
+          console.log('Setting initial selectedDid:', newSelectedDid);
+          this.$emit('update:selectedDid', newSelectedDid);
+        }
+      });
     },
-   
     backupPrivateKey() {
       if (!this.selectedDid) {
         this.$emit('response', 'Please select a DID first.');
         return;
       }
       console.log('Backing up DID:', this.selectedDid);
-      const stored = JSON.parse(localStorage.getItem('didKeyPairs') || '{}');
-      const keyPair = stored[this.selectedDid];
-      if (!keyPair) {
-        this.$emit('response', 'No key pair found for the selected DID.');
-        return;
-      }
-      try {
-        console.log('Attempting decryption with password:', this.extensionPassword);
-        console.log('Encrypted secret key:', keyPair.secretKey);
-        const decryptedBytes = CryptoJS.AES.decrypt(keyPair.secretKey, this.extensionPassword);
-        const decryptedKey = decryptedBytes.toString(CryptoJS.enc.Utf8);
-        if (!decryptedKey) {
-          throw new Error('Decryption failed, possibly due to incorrect password.');
+      chrome.storage.local.get(['didKeyPairs'], (result) => {
+        if (chrome.runtime.lastError) {
+          console.error('Error retrieving didKeyPairs:', chrome.runtime.lastError.message);
+          this.$emit('response', 'Error accessing DID data.');
+          return;
         }
-        console.log('Decrypted key:', decryptedKey);
-
-        this.$emit('show-backup', decryptedKey);
-        // this.$emit('response', `Private key for "${keyPair.name || this.truncateDid(this.selectedDid)}" retrieved successfully.`);
-      } catch (error) {
-        console.error('Decryption error:', error.message);
-        this.$emit('response', `Error decrypting private key: ${error.message}`);
-      }
+        const stored = JSON.parse(result.didKeyPairs || '{}');
+        const keyPair = stored[this.selectedDid];
+        if (!keyPair) {
+          this.$emit('response', 'No key pair found for the selected DID.');
+          return;
+        }
+        try {
+          console.log('Attempting decryption with password:', this.extensionPassword);
+          console.log('Encrypted secret key:', keyPair.secretKey);
+          const decryptedBytes = CryptoJS.AES.decrypt(keyPair.secretKey, this.extensionPassword);
+          const decryptedKey = decryptedBytes.toString(CryptoJS.enc.Utf8);
+          if (!decryptedKey) {
+            throw new Error('Decryption failed, possibly due to incorrect password.');
+          }
+          console.log('Decrypted key:', decryptedKey);
+          this.$emit('show-backup', decryptedKey);
+        } catch (error) {
+          console.error('Decryption error:', error.message);
+          this.$emit('response', `Error decrypting private key: ${error.message}`);
+        }
+      });
     },
     truncateDid(did) {
       return did.length > 30 ? `${did.slice(0, 12)}...${did.slice(-12)}` : did;

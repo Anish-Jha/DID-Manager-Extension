@@ -59,9 +59,42 @@ chrome.runtime.onMessageExternal.addListener(
 // Handle confirmation response from the UI
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "password-unlocked") {
-    decryptedPassword = message.decryptedPassword; // Store in memory
-    // console.log("Decrypted password received and stored");
-    sendResponse({ status: "password-stored" });
+    decryptedPassword = message.decryptedPassword;
+    chrome.storage.session.set(
+      {
+        isUnlocked: true,
+        decryptedPassword: message.decryptedPassword,
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          console.error("Error storing session data:", chrome.runtime.lastError.message);
+          sendResponse({ status: "error", error: "Failed to store session data" });
+        } else {
+          console.log("Decrypted password stored in session");
+          sendResponse({ status: "password-stored" });
+        }
+      }
+    );
+    return true;
+  }
+
+   if (message.action === "is-unlocked") {
+    chrome.storage.session.get(["isUnlocked"], (result) => {
+      sendResponse({ unlocked: Boolean(result.isUnlocked) });
+    });
+    return true;
+  }
+
+  if (message.action === "lock") {
+    decryptedPassword = null;
+    chrome.storage.session.remove(["isUnlocked", "decryptedPassword"], () => {
+      if (chrome.runtime.lastError) {
+        console.error("Error clearing session data:", chrome.runtime.lastError.message);
+        sendResponse({ status: "error", error: "Failed to clear session data" });
+      } else {
+        sendResponse({ status: "locked" });
+      }
+    });
     return true;
   }
 

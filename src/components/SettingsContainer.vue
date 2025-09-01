@@ -18,13 +18,26 @@
                     <img src="../icons/key.svg" class="w-8 h-8 rounded-md border border-gray-700 p-2 bg-gray-700 object-contain" alt="">
                     Generate a New DID
                 </button> -->
-                <button class="bg-transparent flex justify-start cursor-pointer gap-2 items-center text-white text-lg px-4 py-2" @click="$emit('restore-did')">
-                    <img src="../icons/restore.svg" class="w-8 h-8 rounded-md border border-gray-700 p-2 bg-gray-700 object-contain" alt="">
+                <button
+                    class="bg-transparent flex justify-start cursor-pointer gap-2 items-center text-white text-lg px-4 py-2"
+                    @click="$emit('restore-did')">
+                    <img src="../icons/restore.svg"
+                        class="w-8 h-8 rounded-md border border-gray-700 p-2 bg-gray-700 object-contain" alt="">
                     Restore DID
                 </button>
-                <button class="bg-transparent flex justify-start cursor-pointer gap-2 items-center text-white text-lg px-4 py-2" @click="$emit('settings-did')">
-                    <img src="../icons/perm.png" class="w-8 h-8 rounded-md border border-gray-700 p-2 bg-gray-700 object-contain" alt="">
+                <button
+                    class="bg-transparent flex justify-start cursor-pointer gap-2 items-center text-white text-lg px-4 py-2"
+                    @click="$emit('settings-did')">
+                    <img src="../icons/perm.png"
+                        class="w-8 h-8 rounded-md border border-gray-700 p-2 bg-gray-700 object-contain" alt="">
                     DID Configuration
+                </button>
+                <button
+                    class="bg-transparent flex justify-start cursor-pointer gap-2 items-center text-white text-lg px-4 py-2"
+                    @click="$emit('lock')">
+                    <img src="../icons/lock.svg"
+                        class="w-8 h-8 rounded-md border border-gray-700 p-2 bg-gray-700 object-contain" alt="">
+                    Lock extension
                 </button>
             </div>
 
