@@ -141,7 +141,7 @@ export default {
 
         this.keyInfo = { did, publicKey: bs58.encode(publicKey) };
         this.$emit('key-generated', didData);
-        this.$emit('response', `DID "${this.didName}" restored successfully!`);
+        // this.$emit('response', `DID "${this.didName}" restored successfully!`);
         this.isLoading = false;
       } catch (error) {
         console.error('Restore error:', error.message);

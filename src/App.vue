@@ -161,7 +161,7 @@ export default {
                 this.loadStoredDids(() => {
                   this.state.showOnboarding = !this.state.dontShowOnboarding && this.state.storedDids.length === 0;
                   this.loadSettings(() => {
-                    this.addResponse("Extension unlocked from session!");
+                    // this.addResponse("Extension unlocked from session!");
                     chrome.runtime.sendMessage({ action: "get-current-origin" }, (response) => {
                       if (response?.origin) {
                         this.state.websiteOrigin = response.origin;
@@ -308,7 +308,7 @@ export default {
                 this.state.showUnlockModal = false;
                 this.loadStoredDids(() => {
                   this.state.showOnboarding = !this.state.dontShowOnboarding && this.state.storedDids.length === 0;
-                  this.addResponse("Extension unlocked successfully!");
+                  // this.addResponse("Extension unlocked successfully!");
                 });
               } else {
                 this.addResponse("Error storing password in session.");
@@ -454,7 +454,7 @@ export default {
     },
     updateSelectedDid(did) {
       this.state.selectedDid = did;
-      this.addResponse(`Selected DID: ${did}`);
+      // this.addResponse(`Selected DID: ${did}`);
     },
     handleDidSelected(did) {
       if (!did) {
