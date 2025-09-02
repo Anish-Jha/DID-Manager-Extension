@@ -50,7 +50,7 @@
               @continue="handleClaimSuccessContinue" />
           </div>
           <div v-if="state.activeTab === 'settings' && state.storedDids.length > 0" class="space-y-4">
-            <Settings v-model:selected-did="state.selectedDid" :extension-password="state.extensionPassword"
+            <Settings v-model:selected-did="state.selectedDid" :extensionPassword="state.extensionPassword" :selectedDid="state.selectedDid"
               @key-generated="handleKeyGenerated" @response="addResponse" @show-backup="showBackupModal"
               @show-confirm="showConfirmModal" @delete-did="promptDeleteKeyPair" @back="handleClaimSuccessContinue" />
           </div>
