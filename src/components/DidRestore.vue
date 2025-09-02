@@ -54,6 +54,11 @@ export default {
     };
   },
   methods: {
+    // Helper to validate Base58 format
+    isValidBase58(str) {
+      const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
+      return base58Regex.test(str);
+    },
     async restorePrivateKey() {
       if (!this.didName.trim()) {
         this.$emit('response', 'Please enter a DID name.');
@@ -63,34 +68,92 @@ export default {
         this.$emit('response', 'Please enter a private key.');
         return;
       }
+      if (!this.extensionPassword) {
+        this.$emit('response', 'Extension password is missing.');
+        return;
+      }
       this.isLoading = true;
       try {
         const cleanKey = this.restoreKeyInput.trim();
-        const decodedKey = bs58.decode(cleanKey);
-        if (decodedKey.length !== 64) throw new Error('Invalid private key length.');
+        console.log('Restoring private key, length:', cleanKey.length, 'password length:', this.extensionPassword.length);
 
-        const publicKey = ed.extractPublicKeyFromSecretKey(decodedKey);
+        // 1. Validate Base58 format
+        if (!this.isValidBase58(cleanKey)) {
+          throw new Error('Invalid private key: contains non-Base58 characters.');
+        }
+
+        // 2. Decode and validate key length
+        let decodedKey;
+        try {
+          decodedKey = bs58.decode(cleanKey);
+        } catch (error) {
+          throw new Error('Invalid private key: failed to decode Base58 string.');
+        }
+        if (decodedKey.length !== 64) {
+          throw new Error(`Invalid private key: expected 64 bytes, got ${decodedKey.length} bytes.`);
+        }
+
+        // 3. Validate Ed25519 private key and derive public key
+        let publicKey;
+        try {
+          publicKey = ed.extractPublicKeyFromSecretKey(decodedKey);
+        } catch (error) {
+          throw new Error('Invalid private key: cannot derive public key.');
+        }
+        if (publicKey.length !== 32) {
+          throw new Error(`Invalid public key: expected 32 bytes, got ${publicKey.length} bytes.`);
+        }
+
+        // 4. Test signing to ensure key is usable
+        try {
+          const testMessage = new TextEncoder().encode('test');
+          const testSignature = ed.sign(decodedKey, testMessage);
+          if (!ed.verify(publicKey, testMessage, testSignature)) {
+            throw new Error('Invalid private key: test signature verification failed.');
+          }
+        } catch (error) {
+          throw new Error('Invalid private key: cannot perform signing operation.');
+        }
+
+        // 5. Generate DID
         const did = `did:decast:${bs58.encode(publicKey)}`;
 
-        const didData = {
+        // 6. Encrypt secret key with explicit configuration
+        const encryptedSecretKey = CryptoJS.AES.encrypt(cleanKey, this.extensionPassword, {
+          mode: CryptoJS.mode.CBC,
+          padding: CryptoJS.pad.Pkcs7,
+        }).toString();
+        console.log('Encrypted secretKey:', encryptedSecretKey);
+
+        // 7. Test decryption to ensure correctness
+        try {
+          const decryptedKey = CryptoJS.AES.decrypt(encryptedSecretKey, this.extensionPassword, {
+            mode: CryptoJS.mode.CBC,
+            padding: CryptoJS.pad.Pkcs7,
+          }).toString(CryptoJS.enc.Utf8);
+          if (decryptedKey !== cleanKey) {
+            throw new Error('Encryption error: decrypted key does not match original.');
+          }
+          console.log('Decryption test passed, decrypted key length:', decryptedKey.length);
+        } catch (error) {
+          throw new Error('Encryption error: failed to decrypt secret key.');
+        }
+
+        // 8. Prepare DID data to store
+        const didDataToStore = {
           did,
           name: this.didName.trim(),
           publicKey: bs58.encode(publicKey),
-          rawSecretKey: cleanKey,
+          secretKey: encryptedSecretKey,
           createdAt: new Date().toISOString(),
         };
 
-        // Encrypt the entire didData object
-        const encryptedDidData = CryptoJS.AES.encrypt(
-          JSON.stringify(didData),
-          this.extensionPassword
-        ).toString();
-
         this.keyInfo = { did, publicKey: bs58.encode(publicKey) };
-        this.$emit('key-generated', { did, encryptedDidData });
+        this.$emit('key-generated', didDataToStore);
         this.$emit('response', `DID "${this.didName}" restored successfully!`);
         this.isLoading = false;
       } catch (error) {
+        console.error('Restore error:', error.message);
         this.$emit('response', `Error restoring private key: ${error.message}`);
         this.isLoading = false;
       }

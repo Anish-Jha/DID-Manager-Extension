@@ -1,25 +1,23 @@
 <!-- App.vue -->
 <template>
   <div id="app"
-      class="bg-[#15161E] text-white pt-4 pl-4 pr-4 w-[450px] h-[600px] flex flex-col items-center justify-start">
+    class="bg-[#15161E] text-white pt-4 pl-4 pr-4 w-[450px] h-[600px] flex flex-col items-center justify-start">
     <UnlockModal v-if="state.showUnlockModal" @unlock="handleUnlock" @response="addResponse"
-        @forgot-password="handleForgotPasswordModal" />
+      @forgot-password="handleForgotPasswordModal" />
     <ForgotPassword v-if="state.showForgotPasswordModal" @response="addResponse" @wallet-reset="handleWalletReset"
-        @close="state.showForgotPasswordModal = false" />
+      @close="state.showForgotPasswordModal = false" />
     <PasswordSetup v-if="state.showPasswordSetup" @close="state.showPasswordSetup = false" @response="addResponse"
-        @password-set="handlePasswordSet" />
+      @password-set="handlePasswordSet" />
     <SettingsContainer v-if="state.showSettingsContainer" @close="state.showSettingsContainer = false"
-        @generate-did="handleGenerateDid" @restore-did="handleRestoreDid" @settings-did="showSettings"
-        @delete-did="promptDeleteKeyPair" @response="addResponse" @lock="handleLock" />
+      @generate-did="handleGenerateDid" @restore-did="handleRestoreDid" @settings-did="showSettings"
+      @delete-did="promptDeleteKeyPair" @response="addResponse" @lock="handleLock" />
     <template v-else>
-      <header
-          class="flex items-center justify-between gap-3 mb-4 w-full border-b border-gray-700 pb-2 sticky top-0">
+      <header class="flex items-center justify-between gap-3 mb-4 w-full border-b border-gray-700 pb-2 sticky top-0">
         <div class="flex items-center gap-2 justify-start">
           <img src="./icons/logot.svg" alt="DID:Decast Logo" class="w-auto h-8" />
         </div>
         <div>
-          <img src="./icons/settings.svg" alt="Settings" class="cursor-pointer w-6 h-6"
-              @click="handleSettings">
+          <img src="./icons/settings.svg" alt="Settings" class="cursor-pointer w-6 h-6" @click="handleSettings">
         </div>
       </header>
 
@@ -27,53 +25,48 @@
         <div class="tab-content flex-grow w-full overflow-y-auto">
           <div v-if="state.activeTab === 'profile'" class="space-y-4">
             <DidProfile v-if="state.storedDids.length > 0 && !state.showDidSelector"
-                v-model:selected-did="state.selectedDid" :responses="state.responses"
-                :stored-dids="state.storedDids" @update:selectedDid="updateSelectedDid"
-                @response="addResponse" @clear-responses="clearResponses" />
-            <DidSelector v-if="state.showDidSelector" :dids="state.storedDids"
-                @did-selected="handleDidSelected" />
+              v-model:selected-did="state.selectedDid" :responses="state.responses" :stored-dids="state.storedDids"
+              @update:selectedDid="updateSelectedDid" @response="addResponse" @clear-responses="clearResponses" />
+            <DidSelector v-if="state.showDidSelector" :dids="state.storedDids" @did-selected="handleDidSelected" />
             <div v-else-if="state.storedDids.length === 0" class="text-gray-500 text-center">
               No DIDs available. Please generate or restore a DID.
             </div>
           </div>
           <div v-if="state.activeTab === 'generate'">
-            <DidGenerate :extension-password="state.extensionPassword || 'temp'"
-                :from-settings="state.fromSettings" @key-generated="handleKeyGenerated"
-                @response="addResponse" @back="handleClaimSuccessContinue" />
+            <DidGenerate :extension-password="state.extensionPassword || 'temp'" :from-settings="state.fromSettings"
+              @key-generated="handleKeyGenerated" @response="addResponse" @back="handleClaimSuccessContinue" />
           </div>
           <div v-if="state.activeTab === 'restore'">
             <DidRestore :extension-password="state.extensionPassword" @key-generated="handleKeyGenerated"
-                @response="addResponse" @back="handleClaimSuccessContinue" />
+              @response="addResponse" @back="handleClaimSuccessContinue" />
           </div>
           <div v-if="state.activeTab === 'responses'">
             <ResponseDisplay :responses="state.responses" @clear-responses="clearResponses" />
           </div>
           <div v-if="state.activeTab === 'claim-success'">
             <DidClaimSuccess :name="state.tempDidData?.name || ''" :did="state.tempDidData?.did || ''"
-                @continue="handleClaimSuccessContinue" />
+              @continue="handleClaimSuccessContinue" />
           </div>
           <div v-if="state.activeTab === 'settings' && state.storedDids.length > 0" class="space-y-4">
             <Settings v-model:selected-did="state.selectedDid" :extension-password="state.extensionPassword"
-                @key-generated="handleKeyGenerated" @response="addResponse" @show-backup="showBackupModal"
-                @show-confirm="showConfirmModal" @delete-did="promptDeleteKeyPair"
-                @back="handleClaimSuccessContinue" />
+              @key-generated="handleKeyGenerated" @response="addResponse" @show-backup="showBackupModal"
+              @show-confirm="showConfirmModal" @delete-did="promptDeleteKeyPair" @back="handleClaimSuccessContinue" />
           </div>
         </div>
       </div>
 
       <OnboardingModal v-if="state.showOnboarding" :dont-show-again="state.dontShowOnboarding"
-          :is-first-time="state.isFirstTime" @update:dont-show-again="updateDontShowOnboarding"
-          @close="closeOnboarding" @generate-did="handleGenerateDid" @restore-did="handleRestoreDid"
-          @response="addResponse" />
+        :is-first-time="state.isFirstTime" @update:dont-show-again="updateDontShowOnboarding" @close="closeOnboarding"
+        @generate-did="handleGenerateDid" @restore-did="handleRestoreDid" @response="addResponse" />
       <SaveBackupKey v-if="state.showSaveBackupKey" :backupKey="state.backupKey" @download="downloadBackup"
-          @response="addResponse" @continue="handleBackupContinue" @close="handleBackupClose" />
-      <BackupModal v-if="state.showBackupModal" :backupKey="state.backupKey"
-          @download="downloadBackupFromSettings" @response="addResponse" @close="state.showBackupModal = false" />
+        @response="addResponse" @continue="handleBackupContinue" @close="handleBackupClose" />
+      <BackupModal v-if="state.showBackupModal" :backupKey="state.backupKey" @download="downloadBackupFromSettings"
+        @response="addResponse" @close="state.showBackupModal = false" />
       <PromptModal v-if="state.showPromptModal" :title="state.promptModal.title"
-          :placeholder="state.promptModal.placeholder" @submit="handlePromptSubmit" @close="closePromptModal" />
+        :placeholder="state.promptModal.placeholder" @submit="handlePromptSubmit" @close="closePromptModal" />
       <ConfirmModal v-if="state.showConfirmModal" :title="state.confirmModal.title"
-          :message="state.confirmModal.message" @confirm="handleConfirm" @close="closeConfirmModal"
-          :source="state.confirmModal.source" />
+        :message="state.confirmModal.message" @confirm="handleConfirm" @close="closeConfirmModal"
+        :source="state.confirmModal.source" />
     </template>
   </div>
 </template>
@@ -561,22 +554,25 @@ export default {
     truncateDid(did) {
       return did.length > 30 ? `${did.slice(0, 12)}...${did.slice(-12)}` : did;
     },
+    // In App.vue, update handleKeyGenerated method
     handleKeyGenerated(didData) {
+      console.log('Handling key-generated:', didData);
       this.loadStoredDids();
       this.addResponse(`DID "${didData.name}" generated successfully!`);
       if (this.state.isFirstTime) {
         this.state.tempDidData = didData;
-        this.showSaveBackupKey(didData.rawSecretKey);
+        this.showSaveBackupKey(didData.rawSecretKey || didData.secretKey); // Fallback for restored DIDs
       } else {
         chrome.storage.local.get(["didKeyPairs"], (result) => {
           const stored = JSON.parse(result.didKeyPairs || "{}");
-          const encryptedSecretKey = CryptoJS.AES.encrypt(didData.rawSecretKey, this.state.extensionPassword).toString();
+          const encryptedSecretKey = didData.secretKey; // Already encrypted for restored DIDs
           stored[didData.did] = {
             name: didData.name,
             publicKey: didData.publicKey,
             secretKey: encryptedSecretKey,
             createdAt: didData.createdAt,
           };
+          console.log('Storing didKeyPairs:', stored);
           chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
             if (chrome.runtime.lastError) {
               console.error("Error storing didKeyPairs:", chrome.runtime.lastError.message);

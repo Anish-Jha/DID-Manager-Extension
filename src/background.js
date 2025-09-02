@@ -6,46 +6,77 @@ import * as ed from "@stablelib/ed25519";
 let currentRequestOrigin = null;
 let decryptedPassword = null;
 
-chrome.runtime.onMessageExternal.addListener(
-  (request, sender, sendResponse) => {
-    console.log("External message received:", request);
-    if (request.action === "open-did-popup") {
-      currentRequestOrigin = sender.origin;
-      chrome.action.openPopup(() => {
-        setTimeout(() => {
-          chrome.runtime.sendMessage({
-            action: "show-did-selector",
-            origin: sender.origin,
-          });
-        }, 200);
-      });
-      sendResponse({ status: "popup-opened" });
+// Nonce validation constants
+const MAX_NONCE_LENGTH = 64;
+const MIN_NONCE_LENGTH = 1;
+const HEX_REGEX = /^[0-9a-fA-F]+$/;
+
+function validateNonce(nonce) {
+  if (typeof nonce !== "string") {
+    return { valid: false, error: "Nonce must be a string" };
+  }
+  if (nonce.length < MIN_NONCE_LENGTH) {
+    return { valid: false, error: "Nonce is too short" };
+  }
+  if (nonce.length > MAX_NONCE_LENGTH) {
+    return { valid: false, error: `Nonce exceeds maximum length of ${MAX_NONCE_LENGTH} characters` };
+  }
+  if (!HEX_REGEX.test(nonce)) {
+    return { valid: false, error: "Nonce must contain only hexadecimal characters (0-9, a-f, A-F)" };
+  }
+  // Check for non-printable characters
+  if (/[\x00-\x1F\x7F]/.test(nonce)) {
+    return { valid: false, error: "Nonce contains invalid control characters" };
+  }
+  return { valid: true };
+}
+
+chrome.runtime.onMessageExternal.addListener((request, sender, sendResponse) => {
+  console.log("External message received:", request);
+  if (request.action === "open-did-popup") {
+    currentRequestOrigin = sender.origin;
+    chrome.action.openPopup(() => {
+      setTimeout(() => {
+        chrome.runtime.sendMessage({
+          action: "show-did-selector",
+          origin: sender.origin,
+        });
+      }, 200);
+    });
+    sendResponse({ status: "popup-opened" });
+    return true;
+  }
+
+  if (request.action === "sign-nonce") {
+    // Validate nonce early
+    const nonceValidation = validateNonce(request.nonce);
+    if (!nonceValidation.valid) {
+      console.error("Nonce validation failed:", nonceValidation.error);
+      sendResponse({ error: `Invalid nonce: ${nonceValidation.error}` });
       return true;
     }
 
-    if (request.action === "sign-nonce") {
-      const nonceRequest = {
-        nonce: request.nonce,
-        did: request.did,
-        sender: sender,
-        sendResponse: sendResponse,
-      };
-      console.log("Storing nonce request:", nonceRequest);
-      chrome.runtime.sendMessage({
-        action: "show-nonce-confirm-modal",
-        nonce: request.nonce,
-        origin: sender.origin,
-      });
-      chrome.storage.local.set({ pendingNonceRequest: nonceRequest }, () => {
-        if (chrome.runtime.lastError) {
-          console.error("Error storing nonce request:", chrome.runtime.lastError.message);
-          sendResponse({ error: "Failed to store nonce request" });
-        }
-      });
-      return true;
-    }
+    const nonceRequest = {
+      nonce: request.nonce,
+      did: request.did,
+      sender: sender,
+      sendResponse: sendResponse,
+    };
+    console.log("Storing nonce request:", nonceRequest);
+    chrome.runtime.sendMessage({
+      action: "show-nonce-confirm-modal",
+      nonce: request.nonce,
+      origin: sender.origin,
+    });
+    chrome.storage.local.set({ pendingNonceRequest: nonceRequest }, () => {
+      if (chrome.runtime.lastError) {
+        console.error("Error storing nonce request:", chrome.runtime.lastError.message);
+        sendResponse({ error: "Failed to store nonce request" });
+      }
+    });
+    return true;
   }
-);
+});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("Internal message received:", message);
@@ -181,6 +212,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 function signNonce(entry, nonceRequest, sendResponse) {
   console.log("Attempting to sign nonce with entry:", entry);
   try {
+    // Re-validate nonce in case it was tampered with in storage
+    const nonceValidation = validateNonce(nonceRequest.nonce);
+    if (!nonceValidation.valid) {
+      throw new Error(`Invalid nonce: ${nonceValidation.error}`);
+    }
+
     const decrypted = CryptoJS.AES.decrypt(entry.secretKey, decryptedPassword).toString(CryptoJS.enc.Utf8);
     if (!decrypted) {
       throw new Error("Incorrect password or decryption failed");

@@ -14,10 +14,10 @@
         <div class="w-full max-w-md h-full flex flex-col justify-between items-center">
             <div
                 class="space-y-4 rounded-lg border border-gray-700 p-4 flex flex-col justify-start items-start mt-4 w-full">
-                <!-- <button class="bg-transparent flex justify-start cursor-pointer gap-2 items-center text-white text-lg px-4 py-2" @click="$emit('generate-did')">
+                <button class="bg-transparent flex justify-start cursor-pointer gap-2 items-center text-white text-lg px-4 py-2" @click="$emit('generate-did')">
                     <img src="../icons/key.svg" class="w-8 h-8 rounded-md border border-gray-700 p-2 bg-gray-700 object-contain" alt="">
                     Generate a New DID
-                </button> -->
+                </button>
                 <button
                     class="bg-transparent flex justify-start cursor-pointer gap-2 items-center text-white text-lg px-4 py-2"
                     @click="$emit('restore-did')">
