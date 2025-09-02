@@ -1,4 +1,3 @@
-// background.js
 import CryptoJS from "crypto-js";
 import bs58 from "bs58";
 import * as ed from "@stablelib/ed25519";
@@ -6,7 +5,6 @@ import * as ed from "@stablelib/ed25519";
 let currentRequestOrigin = null;
 let decryptedPassword = null;
 
-// Nonce validation constants
 const MAX_NONCE_LENGTH = 64;
 const MIN_NONCE_LENGTH = 1;
 const HEX_REGEX = /^[0-9a-fA-F]+$/;
@@ -24,7 +22,6 @@ function validateNonce(nonce) {
   if (!HEX_REGEX.test(nonce)) {
     return { valid: false, error: "Nonce must contain only hexadecimal characters (0-9, a-f, A-F)" };
   }
-  // Check for non-printable characters
   if (/[\x00-\x1F\x7F]/.test(nonce)) {
     return { valid: false, error: "Nonce contains invalid control characters" };
   }
@@ -48,7 +45,6 @@ chrome.runtime.onMessageExternal.addListener((request, sender, sendResponse) => 
   }
 
   if (request.action === "sign-nonce") {
-    // Validate nonce early
     const nonceValidation = validateNonce(request.nonce);
     if (!nonceValidation.valid) {
       console.error("Nonce validation failed:", nonceValidation.error);
@@ -121,57 +117,61 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
 
       if (message.confirmed) {
-        let stored = result.didKeyPairs;
-        if (typeof stored === "string") {
+        let stored = {};
+        if (result.didKeyPairs) {
+          if (!decryptedPassword) {
+            console.log("decryptedPassword not in memory, attempting to retrieve from session");
+            chrome.storage.session.get(["encryptedPassword", "passwordSalt"], (sessionResult) => {
+              console.log("Session storage data:", sessionResult);
+              if (sessionResult.encryptedPassword && sessionResult.passwordSalt) {
+                try {
+                  decryptedPassword = CryptoJS.AES.decrypt(
+                    sessionResult.encryptedPassword,
+                    sessionResult.passwordSalt
+                  ).toString(CryptoJS.enc.Utf8);
+                  console.log("Decrypted password from session:", !!decryptedPassword);
+                  if (decryptedPassword) {
+                    try {
+                      const decryptedDidKeyPairs = CryptoJS.AES.decrypt(
+                        result.didKeyPairs,
+                        decryptedPassword,
+                        { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+                      ).toString(CryptoJS.enc.Utf8);
+                      stored = JSON.parse(decryptedDidKeyPairs || "{}");
+                      processNonce(stored, nonceRequest, sendResponse);
+                    } catch (error) {
+                      console.error("Error decrypting didKeyPairs:", error.message);
+                      sendResponse({ error: "Failed to decrypt DID data: invalid password or corrupted storage" });
+                    }
+                  } else {
+                    console.error("Failed to decrypt password: empty result");
+                    sendResponse({ error: "Failed to decrypt password" });
+                  }
+                } catch (error) {
+                  console.error("Decryption error:", error.message);
+                  sendResponse({ error: "Failed to decrypt password: " + error.message });
+                }
+              } else {
+                console.error("Session data missing: encryptedPassword or passwordSalt not found");
+                sendResponse({ error: "Extension password not found" });
+              }
+            });
+            return;
+          }
           try {
-            stored = JSON.parse(stored);
-          } catch (e) {
-            console.error("Error parsing didKeyPairs JSON:", e);
-            sendResponse({ error: "Corrupted DID storage" });
+            const decryptedDidKeyPairs = CryptoJS.AES.decrypt(
+              result.didKeyPairs,
+              decryptedPassword,
+              { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+            ).toString(CryptoJS.enc.Utf8);
+            stored = JSON.parse(decryptedDidKeyPairs || "{}");
+          } catch (error) {
+            console.error("Error decrypting didKeyPairs:", error.message);
+            sendResponse({ error: "Failed to decrypt DID data: invalid password or corrupted storage" });
             return;
           }
         }
-
-        const didKey = typeof nonceRequest.did === "object" ? nonceRequest.did.did : nonceRequest.did;
-        const entry = stored[didKey];
-        console.log("DID entry for signing:", entry);
-
-        if (!entry) {
-          console.error("DID not found for key:", didKey);
-          nonceRequest.sendResponse({ error: "DID not found" });
-          return;
-        }
-
-        if (!decryptedPassword) {
-          console.log("decryptedPassword not in memory, attempting to retrieve from session");
-          chrome.storage.session.get(["encryptedPassword", "passwordSalt"], (sessionResult) => {
-            console.log("Session storage data:", sessionResult);
-            if (sessionResult.encryptedPassword && sessionResult.passwordSalt) {
-              try {
-                decryptedPassword = CryptoJS.AES.decrypt(
-                  sessionResult.encryptedPassword,
-                  sessionResult.passwordSalt
-                ).toString(CryptoJS.enc.Utf8);
-                console.log("Decrypted password from session:", !!decryptedPassword);
-                if (decryptedPassword) {
-                  signNonce(entry, nonceRequest, sendResponse);
-                } else {
-                  console.error("Failed to decrypt password: empty result");
-                  nonceRequest.sendResponse({ error: "Failed to decrypt password" });
-                }
-              } catch (error) {
-                console.error("Decryption error:", error.message);
-                nonceRequest.sendResponse({ error: "Failed to decrypt password: " + error.message });
-              }
-            } else {
-              console.error("Session data missing: encryptedPassword or passwordSalt not found");
-              nonceRequest.sendResponse({ error: "Extension password not found" });
-            }
-          });
-          return;
-        }
-
-        signNonce(entry, nonceRequest, sendResponse);
+        processNonce(stored, nonceRequest, sendResponse);
       } else {
         console.log("Nonce signing canceled by user");
         nonceRequest.sendResponse({ error: "User canceled nonce signing" });
@@ -209,16 +209,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+function processNonce(stored, nonceRequest, sendResponse) {
+  const didKey = typeof nonceRequest.did === "object" ? nonceRequest.did.did : nonceRequest.did;
+  const entry = stored[didKey];
+  console.log("DID entry for signing:", entry);
+
+  if (!entry) {
+    console.error("DID not found for key:", didKey);
+    nonceRequest.sendResponse({ error: "DID not found" });
+    return;
+  }
+
+  signNonce(entry, nonceRequest, sendResponse);
+}
+
 function signNonce(entry, nonceRequest, sendResponse) {
   console.log("Attempting to sign nonce with entry:", entry);
   try {
-    // Re-validate nonce in case it was tampered with in storage
     const nonceValidation = validateNonce(nonceRequest.nonce);
     if (!nonceValidation.valid) {
       throw new Error(`Invalid nonce: ${nonceValidation.error}`);
     }
 
-    const decrypted = CryptoJS.AES.decrypt(entry.secretKey, decryptedPassword).toString(CryptoJS.enc.Utf8);
+    const decrypted = CryptoJS.AES.decrypt(
+      entry.secretKey,
+      decryptedPassword,
+      { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+    ).toString(CryptoJS.enc.Utf8);
     if (!decrypted) {
       throw new Error("Incorrect password or decryption failed");
     }

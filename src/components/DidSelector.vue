@@ -1,4 +1,3 @@
-<!-- DidSelector.vue -->
 <template>
   <div class="flex flex-col items-center justify-center w-full h-full">
     <h3 class="text-xl font-semibold text-center text-white mb-4">Connect an Identity</h3>
@@ -24,7 +23,7 @@
       </select>
     </div>
 
-    <p v-if="storedDids.length === 0" class="text-gray-500 text-sm text-center mt facture-4">
+    <p v-if="storedDids.length === 0" class="text-gray-500 text-sm text-center mt-4">
       No IDs found.
     </p>
     <p v-if="errorMessage" class="text-red-500 text-sm mt-2">{{ errorMessage }}</p>
@@ -32,12 +31,18 @@
 </template>
 
 <script>
+import CryptoJS from 'crypto-js';
+
 export default {
   name: 'DidSelector',
   props: {
     dids: {
       type: Array,
       default: () => [],
+    },
+    extensionPassword: {
+      type: String,
+      default: '',
     },
   },
   data() {
@@ -63,6 +68,9 @@ export default {
       },
       deep: true,
     },
+    extensionPassword() {
+      this.loadStoredDids();
+    },
   },
   methods: {
     loadStoredDids() {
@@ -72,14 +80,39 @@ export default {
           this.errorMessage = 'Error loading DID profiles.';
           return;
         }
-        const stored = JSON.parse(result.didKeyPairs || '{}');
-        this.storedDids = this.dids
-          .map((didObj) => ({
-            did: didObj.did,
-            name: stored[didObj.did]?.name || '',
-            createdAt: stored[didObj.did]?.createdAt || new Date().toISOString(),
+
+        let stored = {};
+        if (result.didKeyPairs) {
+          try {
+            if (this.extensionPassword) {
+              const decrypted = CryptoJS.AES.decrypt(
+                result.didKeyPairs,
+                this.extensionPassword,
+                { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+              ).toString(CryptoJS.enc.Utf8);
+              stored = JSON.parse(decrypted || '{}');
+            } else {
+              // Handle first-time users with unencrypted didKeyPairs
+              stored = JSON.parse(result.didKeyPairs || '{}');
+            }
+          } catch (error) {
+            console.error('Error decrypting didKeyPairs:', error.message);
+            this.errorMessage = 'Failed to decrypt DID profiles. Please ensure your password is correct.';
+            return;
+          }
+        }
+
+        this.storedDids = Object.keys(stored)
+          .map((did) => ({
+            did,
+            name: stored[did].name || '',
+            createdAt: stored[did].createdAt || new Date().toISOString(),
           }))
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        if (this.storedDids.length === 0) {
+          this.errorMessage = 'No DID profiles found. Please generate or restore a DID.';
+        }
       });
     },
     confirmSelection() {

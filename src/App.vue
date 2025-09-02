@@ -26,8 +26,10 @@
           <div v-if="state.activeTab === 'profile'" class="space-y-4">
             <DidProfile v-if="state.storedDids.length > 0 && !state.showDidSelector"
               v-model:selected-did="state.selectedDid" :responses="state.responses" :stored-dids="state.storedDids"
-              @update:selectedDid="updateSelectedDid" @response="addResponse" @clear-responses="clearResponses" />
-            <DidSelector v-if="state.showDidSelector" :dids="state.storedDids" @did-selected="handleDidSelected" />
+              @update:selectedDid="updateSelectedDid" @response="addResponse"
+              :extensionPassword="state.extensionPassword" @clear-responses="clearResponses" />
+            <DidSelector v-if="state.showDidSelector" :dids="state.storedDids"
+              :extensionPassword="state.extensionPassword" @did-selected="handleDidSelected" />
             <div v-else-if="state.storedDids.length === 0" class="text-gray-500 text-center">
               No DIDs available. Please generate or restore a DID.
             </div>
@@ -144,10 +146,8 @@ export default {
     };
   },
   mounted() {
-    // Check if extension is already unlocked in session
     chrome.runtime.sendMessage({ action: "is-unlocked" }, (response) => {
       if (response?.unlocked) {
-        // Extension is unlocked, retrieve encrypted password and salt
         chrome.storage.session.get(["encryptedPassword", "passwordSalt"], (result) => {
           if (result.encryptedPassword && result.passwordSalt) {
             try {
@@ -190,7 +190,6 @@ export default {
       }
     });
 
-    // Add message listeners
     window.addEventListener("message", (event) => {
       if (event.data?.action === "did-selected") {
         const { did } = event.data;
@@ -247,7 +246,25 @@ export default {
     },
     loadStoredDids(callback) {
       chrome.storage.local.get(["didKeyPairs"], (result) => {
-        const stored = result.didKeyPairs ? JSON.parse(result.didKeyPairs) : {};
+        let stored = {};
+        if (result.didKeyPairs) {
+          try {
+            if (this.state.extensionPassword) {
+              const decrypted = CryptoJS.AES.decrypt(
+                result.didKeyPairs,
+                this.state.extensionPassword,
+                { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+              ).toString(CryptoJS.enc.Utf8);
+              stored = JSON.parse(decrypted || "{}");
+            } else if (this.state.isFirstTime) {
+              // For first-time users, didKeyPairs may be unencrypted
+              stored = JSON.parse(result.didKeyPairs || "{}");
+            }
+          } catch (error) {
+            console.error("Error decrypting didKeyPairs:", error.message);
+            this.addResponse("Error loading DID data: invalid password or corrupted storage.");
+          }
+        }
         this.state.storedDids = Object.keys(stored).map(did => ({
           did,
           name: stored[did].name,
@@ -266,7 +283,11 @@ export default {
     },
     handleUnlock(password) {
       const salt = CryptoJS.lib.WordArray.random(16).toString();
-      const encryptedPassword = CryptoJS.AES.encrypt(password, salt).toString();
+      const encryptedPassword = CryptoJS.AES.encrypt(
+        password,
+        salt,
+        { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+      ).toString();
       chrome.storage.session.set(
         {
           isUnlocked: true,
@@ -342,7 +363,11 @@ export default {
       this.state.isFirstTime = false;
       const passwordHash = CryptoJS.SHA256(password).toString();
       const salt = CryptoJS.lib.WordArray.random(16).toString();
-      const encryptedPassword = CryptoJS.AES.encrypt(password, salt).toString();
+      const encryptedPassword = CryptoJS.AES.encrypt(
+        password,
+        salt,
+        { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+      ).toString();
       chrome.storage.session.set(
         {
           encryptedPassword: encryptedPassword,
@@ -370,10 +395,20 @@ export default {
                     this.addResponse("Error storing DID data.");
                     return;
                   }
-                  const stored = JSON.parse(result.didKeyPairs || "{}");
+                  let stored = {};
+                  if (result.didKeyPairs) {
+                    try {
+                      stored = JSON.parse(result.didKeyPairs || "{}");
+                    } catch (error) {
+                      console.error("Error parsing didKeyPairs:", error.message);
+                      this.addResponse("Error parsing DID data.");
+                      return;
+                    }
+                  }
                   const encryptedSecretKey = CryptoJS.AES.encrypt(
                     this.state.tempDidData.rawSecretKey,
-                    password
+                    password,
+                    { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
                   ).toString();
                   const didData = {
                     name: this.state.tempDidData.name,
@@ -382,7 +417,12 @@ export default {
                     createdAt: this.state.tempDidData.createdAt,
                   };
                   stored[this.state.tempDidData.did] = didData;
-                  chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
+                  const encryptedDidKeyPairs = CryptoJS.AES.encrypt(
+                    JSON.stringify(stored),
+                    password,
+                    { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+                  ).toString();
+                  chrome.storage.local.set({ didKeyPairs: encryptedDidKeyPairs }, () => {
                     if (chrome.runtime.lastError) {
                       console.error("Error storing didKeyPairs:", chrome.runtime.lastError.message);
                       this.addResponse("Error storing DID data.");
@@ -426,12 +466,6 @@ export default {
         tabs.forEach((tab) => {
           chrome.tabs.sendMessage(tab.id, { action: "did-selected", did });
         });
-      });
-    },
-    loadSettings(callback) {
-      chrome.storage.local.get(["dontShowOnboarding"], (result) => {
-        this.state.dontShowOnboarding = result.dontShowOnboarding ? JSON.parse(result.dontShowOnboarding) : false;
-        if (callback) callback();
       });
     },
     addResponse(message) {
@@ -512,7 +546,21 @@ export default {
         return;
       }
       chrome.storage.local.get(["didKeyPairs"], (result) => {
-        const stored = JSON.parse(result.didKeyPairs || "{}");
+        let stored = {};
+        if (result.didKeyPairs && this.state.extensionPassword) {
+          try {
+            const decrypted = CryptoJS.AES.decrypt(
+              result.didKeyPairs,
+              this.state.extensionPassword,
+              { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+            ).toString(CryptoJS.enc.Utf8);
+            stored = JSON.parse(decrypted || "{}");
+          } catch (error) {
+            console.error("Error decrypting didKeyPairs:", error.message);
+            this.addResponse("Error accessing DID data: invalid password or corrupted storage.");
+            return;
+          }
+        }
         const keyPair = stored[this.state.selectedDid];
         if (!keyPair) {
           this.addResponse(`No key pair found for DID ${this.truncateDid(this.state.selectedDid)}`);
@@ -532,14 +580,33 @@ export default {
     },
     deleteKeyPair() {
       chrome.storage.local.get(["didKeyPairs"], (result) => {
-        const stored = JSON.parse(result.didKeyPairs || "{}");
+        let stored = {};
+        if (result.didKeyPairs && this.state.extensionPassword) {
+          try {
+            const decrypted = CryptoJS.AES.decrypt(
+              result.didKeyPairs,
+              this.state.extensionPassword,
+              { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+            ).toString(CryptoJS.enc.Utf8);
+            stored = JSON.parse(decrypted || "{}");
+          } catch (error) {
+            console.error("Error decrypting didKeyPairs:", error.message);
+            this.addResponse("Error deleting DID: invalid password or corrupted storage.");
+            return;
+          }
+        }
         const keyPair = stored[this.state.selectedDid];
         if (!keyPair) {
           this.addResponse(`No key pair found for DID ${this.truncateDid(this.state.selectedDid)}`);
           return;
         }
         delete stored[this.state.selectedDid];
-        chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
+        const encryptedDidKeyPairs = CryptoJS.AES.encrypt(
+          JSON.stringify(stored),
+          this.state.extensionPassword,
+          { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+        ).toString();
+        chrome.storage.local.set({ didKeyPairs: encryptedDidKeyPairs }, () => {
           if (chrome.runtime.lastError) {
             console.error("Error storing didKeyPairs:", chrome.runtime.lastError.message);
             this.addResponse("Error deleting DID.");
@@ -554,26 +621,43 @@ export default {
     truncateDid(did) {
       return did.length > 30 ? `${did.slice(0, 12)}...${did.slice(-12)}` : did;
     },
-    // In App.vue, update handleKeyGenerated method
     handleKeyGenerated(didData) {
       console.log('Handling key-generated:', didData);
       this.loadStoredDids();
       this.addResponse(`DID "${didData.name}" generated successfully!`);
       if (this.state.isFirstTime) {
         this.state.tempDidData = didData;
-        this.showSaveBackupKey(didData.rawSecretKey || didData.secretKey); // Fallback for restored DIDs
+        this.showSaveBackupKey(didData.rawSecretKey);
       } else {
         chrome.storage.local.get(["didKeyPairs"], (result) => {
-          const stored = JSON.parse(result.didKeyPairs || "{}");
-          const encryptedSecretKey = didData.secretKey; // Already encrypted for restored DIDs
+          let stored = {};
+          if (result.didKeyPairs && this.state.extensionPassword) {
+            try {
+              const decrypted = CryptoJS.AES.decrypt(
+                result.didKeyPairs,
+                this.state.extensionPassword,
+                { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+              ).toString(CryptoJS.enc.Utf8);
+              stored = JSON.parse(decrypted || "{}");
+            } catch (error) {
+              console.error("Error decrypting didKeyPairs:", error.message);
+              this.addResponse("Error accessing DID data: invalid password or corrupted storage.");
+              return;
+            }
+          }
           stored[didData.did] = {
             name: didData.name,
             publicKey: didData.publicKey,
-            secretKey: encryptedSecretKey,
+            secretKey: didData.secretKey, // Already encrypted
             createdAt: didData.createdAt,
           };
-          console.log('Storing didKeyPairs:', stored);
-          chrome.storage.local.set({ didKeyPairs: JSON.stringify(stored) }, () => {
+          const encryptedDidKeyPairs = CryptoJS.AES.encrypt(
+            JSON.stringify(stored),
+            this.state.extensionPassword,
+            { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+          ).toString();
+          console.log('Storing encrypted didKeyPairs:', encryptedDidKeyPairs);
+          chrome.storage.local.set({ didKeyPairs: encryptedDidKeyPairs }, () => {
             if (chrome.runtime.lastError) {
               console.error("Error storing didKeyPairs:", chrome.runtime.lastError.message);
               this.addResponse("Error storing DID data.");

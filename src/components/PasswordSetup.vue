@@ -1,4 +1,3 @@
-<!-- PasswordSetup.vue -->
 <template>
   <Dialog as="div" :open="true" @close="$emit('close')" class="relative z-50 h-full">
     <div class="bg-[#15161E] fixed inset-0 flex flex-col items-center justify-start p-2 h-full">
@@ -8,8 +7,7 @@
             Decast Wallet Password
           </DialogTitle>
           <DialogDescription as="p" class="text-gray-500 text-base font-semibold text-left mb-4">
-            Contrary to popular practice, you can keep it simple, remember it, and if lost, you may reset it using your
-            recovery key.
+            Choose a strong password (at least 8 characters, including letters, numbers, and symbols). You can reset it using your recovery key if lost.
           </DialogDescription>
           <div class="w-full">
             <label for="password" class="text-white text-base font-medium mb-2 block">New Password</label>
@@ -39,7 +37,7 @@
               class="h-6 w-6 text-yellow-400 focus:ring-yellow-400 border-gray-700 rounded"
             />
             <label for="acknowledge" class="text-gray-500 text-sm font-semibold">
-              ​We cannot recover your password if you forget it. This password is locally saved in the extension.
+              I understand that my password cannot be recovered if forgotten. It is stored locally in the extension.
             </label>
           </div>
           <button
@@ -93,10 +91,21 @@ export default {
         this.isLoading = false;
         return;
       }
+      // Enforce stronger password requirements
+      const passwordRegex = /^(?=.*[a-zA-Z])(?=.*[0-9])(?=.*[!@#$%^&*]).{8,}$/;
+      if (!passwordRegex.test(this.password)) {
+        this.$emit('response', 'Password must include letters, numbers, and at least one special character.');
+        this.isLoading = false;
+        return;
+      }
 
       const passwordHash = CryptoJS.SHA256(this.password).toString();
       const salt = CryptoJS.lib.WordArray.random(16).toString();
-      const encryptedPassword = CryptoJS.AES.encrypt(this.password, salt).toString();
+      const encryptedPassword = CryptoJS.AES.encrypt(
+        this.password,
+        salt,
+        { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+      ).toString();
 
       chrome.storage.session.set(
         {

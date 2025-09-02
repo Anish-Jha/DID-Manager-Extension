@@ -66,23 +66,23 @@ export default {
         const secretKey = keyPair.secretKey;
         const did = `did:decast:${bs58.encode(publicKey)}`;
 
-        // Temporarily encrypt the secret key with 'temp' for first-time users
-        const tempSecretKey = CryptoJS.AES.encrypt(
+        // Encrypt the secret key
+        const encryptedSecretKey = CryptoJS.AES.encrypt(
           bs58.encode(secretKey),
-          this.extensionPassword || 'temp'
+          this.extensionPassword || 'temp',
+          { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
         ).toString();
 
         const didData = {
           did,
           name: this.didName.trim(),
           publicKey: bs58.encode(publicKey),
-          secretKey: tempSecretKey,
-          rawSecretKey: bs58.encode(secretKey), // Include raw secret key for SaveBackupKey
+          secretKey: encryptedSecretKey,
           createdAt: new Date().toISOString(),
+          rawSecretKey: bs58.encode(secretKey), // For backup only, not stored
         };
 
         this.keyInfo = { did, publicKey: bs58.encode(publicKey) };
-        // this.$emit('response', `DID "${this.didName}" generated successfully!`);
         this.$emit('key-generated', didData);
         this.isLoading = false;
       } catch (error) {
@@ -90,20 +90,17 @@ export default {
         this.isLoading = false;
       }
     },
-
     resetForm() {
       this.didName = '';
       this.keyInfo = null;
       this.isLoading = false;
     },
-
     truncateDid(did) {
       return did.length > 30 ? `${did.slice(0, 30)}...${did.slice(-16)}` : did;
     },
   },
 };
 </script>
-
 <style scoped>
 * {
   font-family: 'Rethink Sans', sans-serif !important;

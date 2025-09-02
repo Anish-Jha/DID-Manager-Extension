@@ -1,4 +1,3 @@
-<!-- UnlockModal.vue -->
 <template>
   <Dialog as="div" :open="true" @close="() => { }" class="relative z-50 h-full">
     <div class="bg-[#15161E] fixed inset-0 flex flex-col items-center justify-start p-2 h-full">
@@ -52,51 +51,83 @@ export default {
   methods: {
     unlock() {
       this.isLoading = true;
-      chrome.storage.local.get(['extensionPasswordHash'], (result) => {
+      chrome.storage.local.get(['extensionPasswordHash', 'didKeyPairs'], (result) => {
         const storedHash = result.extensionPasswordHash;
         const inputHash = CryptoJS.SHA256(this.password).toString();
 
-        if (storedHash && inputHash === storedHash) {
-          const salt = CryptoJS.lib.WordArray.random(16).toString();
-          const encryptedPassword = CryptoJS.AES.encrypt(this.password, salt).toString();
-          chrome.storage.session.set(
-            {
-              encryptedPassword: encryptedPassword,
-              passwordSalt: salt,
-              isUnlocked: true,
-            },
-            () => {
-              if (chrome.runtime.lastError) {
-                console.error('Error storing session data:', chrome.runtime.lastError.message);
-                this.$emit('response', 'Error storing session data.');
-                this.isLoading = false;
-                return;
-              }
-              chrome.runtime.sendMessage(
-                { action: 'password-unlocked', decryptedPassword: this.password },
-                (response) => {
-                  if (chrome.runtime.lastError) {
-                    console.error('Error sending password-unlocked message:', chrome.runtime.lastError.message);
-                    this.$emit('response', 'Error communicating with background script.');
-                    this.isLoading = false;
-                    return;
-                  }
-                  if (response?.error) {
-                    this.$emit('response', response.error);
-                    this.isLoading = false;
-                  } else {
-                    this.$emit('unlock', this.password);
-                    this.password = '';
-                    this.isLoading = false;
-                  }
-                }
-              );
-            }
-          );
-        } else {
+        if (!storedHash) {
+          console.error('No stored password hash found');
+          this.$emit('response', 'No password set for this extension. Please set up a new password.');
+          this.isLoading = false;
+          return;
+        }
+
+        if (inputHash !== storedHash) {
+          console.error('Password hash mismatch');
           this.$emit('response', 'Incorrect password.');
           this.isLoading = false;
+          return;
         }
+
+        // Verify decryption of didKeyPairs
+        if (result.didKeyPairs) {
+          try {
+            const decryptedDidKeyPairs = CryptoJS.AES.decrypt(
+              result.didKeyPairs,
+              this.password,
+              { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+            ).toString(CryptoJS.enc.Utf8);
+            JSON.parse(decryptedDidKeyPairs || '{}'); // Test parsing
+          } catch (error) {
+            console.error('Error decrypting didKeyPairs during unlock:', error.message);
+            this.$emit('response', 'Failed to decrypt DID data. Please check your password or reset the wallet.');
+            this.isLoading = false;
+            return;
+          }
+        }
+
+        const salt = CryptoJS.lib.WordArray.random(16).toString();
+        const encryptedPassword = CryptoJS.AES.encrypt(
+          this.password,
+          salt,
+          { mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+        ).toString();
+
+        chrome.storage.session.set(
+          {
+            encryptedPassword: encryptedPassword,
+            passwordSalt: salt,
+            isUnlocked: true,
+          },
+          () => {
+            if (chrome.runtime.lastError) {
+              console.error('Error storing session data:', chrome.runtime.lastError.message);
+              this.$emit('response', 'Error storing session data.');
+              this.isLoading = false;
+              return;
+            }
+            chrome.runtime.sendMessage(
+              { action: 'password-unlocked', decryptedPassword: this.password },
+              (response) => {
+                if (chrome.runtime.lastError) {
+                  console.error('Error sending password-unlocked message:', chrome.runtime.lastError.message);
+                  this.$emit('response', 'Error communicating with background script.');
+                  this.isLoading = false;
+                  return;
+                }
+                if (response?.error) {
+                  console.error('Password-unlocked response error:', response.error);
+                  this.$emit('response', response.error);
+                  this.isLoading = false;
+                } else {
+                  this.$emit('unlock', this.password);
+                  this.password = '';
+                  this.isLoading = false;
+                }
+              }
+            );
+          }
+        );
       });
     },
   },
